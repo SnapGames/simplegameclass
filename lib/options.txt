@@ -1,0 +1,6 @@
+-d target/classes
+-g:source,lines,vars
+-sourcepath src/main/java/;src/main/resources
+-source 19
+-target 19
+-classpath tartget/classes
