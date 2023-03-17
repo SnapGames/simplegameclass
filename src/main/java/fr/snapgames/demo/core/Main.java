@@ -4,6 +4,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.Map.Entry;
 
+import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
@@ -33,6 +34,12 @@ public class Main extends JPanel implements KeyListener {
 
 	public class World {
 		double gravity = 0.981;
+		Dimension playArea;
+
+		public World(double g, Dimension pa) {
+			this.gravity = g;
+			this.playArea = pa;
+		}
 	}
 
 	public class Material {
@@ -90,10 +97,10 @@ public class Main extends JPanel implements KeyListener {
 	private BufferedImage renderingBuffer;
 	private boolean exit;
 	private Map<String, Entity> entities = new HashMap<>();
-
-	World world = new World();
+	World world;
 
 	private boolean[] keys = new boolean[65636];
+	private int debug;
 
 	public Main(String[] args, String pathToConfigPropsFile) {
 		config = initialize(pathToConfigPropsFile);
@@ -115,33 +122,43 @@ public class Main extends JPanel implements KeyListener {
 		}
 	}
 
+	/**
+	 * Convert String key=val to (Type)val
+	 * 
+	 * @param key
+	 * @param val
+	 * @return
+	 */
 	public Object convert(String key, String val) {
 		switch (key) {
-			case "game.size" -> {
+			case "game.size", "size", "gs" -> {
 				String[] value = val.split("x");
 				int width = Integer.valueOf(value[0]);
 				int height = Integer.valueOf(value[1]);
 				Dimension dim = new Dimension(width, height);
 				return dim;
 			}
-			case "game.resolution" -> {
+			case "game.resolution", "resolution", "r" -> {
 				String[] value = val.split("x");
 				int width = Integer.valueOf(value[0]);
 				int height = Integer.valueOf(value[1]);
 				Dimension dim = new Dimension(width, height);
 				return dim;
 			}
-			case "game.playarea" -> {
+			case "game.physic.gravity", "gravity", "g" -> {
+				return Double.valueOf(val);
+			}
+			case "game.physic.playarea", "gpa" -> {
 				String[] value = val.split("x");
 				int width = Integer.valueOf(value[0]);
 				int height = Integer.valueOf(value[1]);
 				Dimension dim = new Dimension(width, height);
 				return dim;
 			}
-			case "game.title" -> {
+			case "game.title", "title", "t" -> {
 				return val;
 			}
-			case "game.debug" -> {
+			case "game.debug", "debug", "d" -> {
 				return Integer.valueOf(val);
 			}
 			default -> {
@@ -171,11 +188,11 @@ public class Main extends JPanel implements KeyListener {
 							e.getValue().toString(),
 							e.getValue().getClass().getSimpleName()));
 
-			frame = createFrame(
+			this.frame = createFrame(
 					(String) config.get("game.title"),
 					(Dimension) config.get("game.size"),
 					(Dimension) config.get("game.resolution"));
-
+			this.debug = (int) config.get("game.debug");
 		} catch (Exception e) {
 			System.err.printf("ERROR: Unable to read the configuration file%s: %s%n", pathToConfigFile, e.getMessage());
 		}
@@ -191,6 +208,7 @@ public class Main extends JPanel implements KeyListener {
 		frame.setContentPane(this);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.pack();
+		frame.setIconImage(new ImageIcon("/images/sg-logo-image.png").getImage());
 
 		frame.setVisible(true);
 		frame.createBufferStrategy(2);
@@ -215,10 +233,12 @@ public class Main extends JPanel implements KeyListener {
 	}
 
 	private void create() {
-		Dimension bufferSize = (Dimension) config.get("game.playarea");
+		world = new World(
+				(Double) config.get("game.physic.gravity"),
+				(Dimension) config.get("game.physic.playarea"));
 		addEntity(new Entity("player",
-				(int) ((bufferSize.getWidth() - 8) * 0.5),
-				(int) ((bufferSize.getHeight() - 8) * 0.5),
+				(int) ((world.playArea.getWidth() - 8) * 0.5),
+				(int) ((world.playArea.getHeight() - 8) * 0.5),
 				Color.RED,
 				Color.BLACK)
 				.setMaterial(new Material("player_mat", 1.0, 0.67, 0.90)));
@@ -250,7 +270,7 @@ public class Main extends JPanel implements KeyListener {
 		boolean move = false;
 		double step = 0.2;
 		if (getKey(KeyEvent.VK_UP)) {
-			player.dy += -(8*step);
+			player.dy += -(8 * step);
 			move = true;
 		}
 		if (getKey(KeyEvent.VK_DOWN)) {
@@ -280,43 +300,43 @@ public class Main extends JPanel implements KeyListener {
 	}
 
 	private void constraintsEntity(Entity e) {
-		Dimension playArea = (Dimension) config.get("game.playarea");
+		Dimension playArea = (Dimension) config.get("game.physic.playarea");
 		e.contact = 0;
 		if (e.x <= 0) {
 			e.x = 0;
 			e.dx = -(e.material.elasticity * e.dx);
-			e.contact +=1;
+			e.contact += 1;
 		}
 		if (e.y <= 0) {
 			e.y = 0;
 			e.dy = -(e.material.elasticity * e.dy);
-			e.contact +=2;
+			e.contact += 2;
 		}
 		if (e.x + e.width > playArea.width) {
 			e.x = playArea.width - e.width;
 			e.dx = -(e.material.elasticity * e.dx);
-			e.contact +=4;
+			e.contact += 4;
 		}
 		if (e.y + e.height > playArea.height) {
 			e.y = playArea.height - e.height;
 			e.dy = -(e.material.elasticity * e.dy);
-			e.contact +=8;
+			e.contact += 8;
 		}
 
 	}
 
 	private void updateEntity(Entity e) {
 		e.dy += world.gravity / e.mass;
-		if(e.contact>0){
-			e.dx*=e.material.friction;
-			e.dy*=e.material.friction;
+		if (e.contact > 0) {
+			e.dx *= e.material.friction;
+			e.dy *= e.material.friction;
 		}
 		e.x += e.dx;
 		e.y += e.dy;
 	}
 
 	private void draw() {
-
+		Dimension playArea = (Dimension) config.get("game.physic.playarea");
 		Graphics2D g = (Graphics2D) renderingBuffer.createGraphics();
 		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -325,6 +345,12 @@ public class Main extends JPanel implements KeyListener {
 		g.setColor(Color.BLACK);
 		g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
 
+		if (this.debug > 0) {
+			g.setColor(Color.YELLOW);
+			g.drawRect(0, 0, playArea.width, playArea.height);
+			g.setColor(Color.gray);
+			g.drawRect(10, 10, renderingBuffer.getWidth() - 20, renderingBuffer.getHeight() - 20);
+		}
 		// draw something
 		entities.values().stream().forEach(e -> {
 
