@@ -4,6 +4,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.Map.Entry;
 
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -15,6 +16,7 @@ import java.awt.Dimension;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 
@@ -73,6 +75,9 @@ public class Main extends JPanel implements KeyListener {
 		Material material = new Material("default", 1.0, 0.60, 0.998);
 		int contact;
 
+		Map<String, Animation> animations = new HashMap<>();
+		String currentAnimation = "";
+
 		public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
 			this.name = name;
 			this.x = x;
@@ -88,6 +93,64 @@ public class Main extends JPanel implements KeyListener {
 
 		public Entity setMass(double m) {
 			this.mass = m;
+			return this;
+		}
+
+		public Entity addAnimation(String name, Animation a) {
+			this.type = EntityType.IMAGE;
+			this.animations.put(name, a);
+			if (currentAnimation.equals("")) {
+				currentAnimation = name;
+			}
+			return this;
+		}
+
+		public Entity setAnimation(String name) {
+			this.currentAnimation = name;
+			return this;
+		}
+	}
+
+	public class Animation {
+		BufferedImage[] frames;
+		int index = 0;
+		boolean loop = true;
+		boolean end = false;
+
+		public Animation(BufferedImage[] f) {
+			this.frames = f;
+
+		}
+
+		public Animation setLoop(boolean b) {
+			this.loop = b;
+			return this;
+		}
+
+		public BufferedImage getFrame() {
+			if (index < frames.length && frames[index] != null) {
+				return frames[index];
+			} else {
+				return null;
+			}
+		}
+
+		public void next() {
+			if (index + 1 < frames.length) {
+				index++;
+			} else {
+				if (loop) {
+					index = 0;
+
+				} else {
+					index = 0;
+					end = true;
+				}
+			}
+		}
+
+		public Animation reset() {
+			index = 0;
 			return this;
 		}
 	}
@@ -236,12 +299,37 @@ public class Main extends JPanel implements KeyListener {
 		world = new World(
 				(Double) config.get("game.physic.gravity"),
 				(Dimension) config.get("game.physic.playarea"));
+
 		addEntity(new Entity("player",
 				(int) ((world.playArea.getWidth() - 8) * 0.5),
 				(int) ((world.playArea.getHeight() - 8) * 0.5),
 				Color.RED,
 				Color.BLACK)
-				.setMaterial(new Material("player_mat", 1.0, 0.67, 0.90)));
+				.setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
+				.addAnimation("walk",
+						readAnimation(
+								"/images/sprites01.png",
+								true,
+								new String[] { "0,0,32,32" })));
+	}
+
+	private Animation readAnimation(String fileImageSource, boolean loop, String[] framesDef) {
+		BufferedImage[] imgs = new BufferedImage[framesDef.length];
+		int i = 0;
+		try {
+			BufferedImage src = ImageIO.read(Main.class.getResourceAsStream(fileImageSource));
+			for (String f : framesDef) {
+				String[] val = f.split(",");
+				int x = Integer.valueOf(val[0]);
+				int y = Integer.valueOf(val[1]);
+				int w = Integer.valueOf(val[2]);
+				int h = Integer.valueOf(val[3]);
+				imgs[i++] = src.getSubimage(x, y, w, h);
+			}
+		} catch (IOException e) {
+			System.err.printf("ERROR: unable to read file %s%n", fileImageSource);
+		}
+		return new Main.Animation(imgs).setLoop(loop);
 	}
 
 	private void addEntity(Entity entity) {
@@ -368,6 +456,10 @@ public class Main extends JPanel implements KeyListener {
 					g.drawOval((int) e.x, (int) e.y, (int) e.width, (int) e.height);
 				}
 				case IMAGE -> {
+					BufferedImage img = e.image;
+					if (!e.currentAnimation.equals("")) {
+						img = e.animations.get(e.currentAnimation).getFrame();
+					}
 					if (e.image != null) {
 						if (e.direction > 0) {
 							g.drawImage(e.image, (int) e.x, (int) e.y, null);
