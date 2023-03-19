@@ -1,10 +1,8 @@
 package fr.snapgames.demo.core;
 
 import java.util.*;
-import java.util.Map.Entry;
 
 import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
@@ -16,6 +14,8 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * Main application
@@ -24,6 +24,202 @@ import java.awt.RenderingHints;
  * @since 1.0.0
  */
 public class Main extends JPanel implements KeyListener {
+
+
+    public enum ConfigAttribute {
+        TITLE("game.title",
+                "title",
+                "MyTitle",
+                "Set the window title",
+                v -> v),
+        DEBUG("game.debug",
+                "debug",
+                "Set the debug level",
+                0,
+                Integer::valueOf),
+        SCREEN_RESOLUTION(
+                "game.screen.resolution",
+                "resolution",
+                "define the screen resolution (pixel rated !)",
+                new Dimension(320, 200),
+                ConfigAttribute::toDimension),
+        WINDOW_SIZE(
+                "game.window.size",
+                "size",
+                "define the window size",
+                new Dimension(320, 200),
+                ConfigAttribute::toDimension),
+        PHYSIC_PLAY_AREA(
+                "game.physic.play.area",
+                "playarea",
+                "define the play area size",
+                new Dimension(320, 200),
+                ConfigAttribute::toDimension),
+        PHYSIC_GRAVITY(
+                "game.physic.gravity",
+                "gravity",
+                "define the physic gravity to apply to any entity",
+                0.981,
+                Double::valueOf);
+
+        private static Dimension toDimension(String value) {
+            String[] interpretedValue = value
+                    .split("x");
+            return new Dimension(
+                    Integer.valueOf(interpretedValue[0]),
+                    Integer.valueOf(interpretedValue[1]));
+        }
+
+        String configAttribute;
+        String argName;
+        Object defaultValue;
+
+        String description;
+        Function<String, Object> attrParser;
+
+        ConfigAttribute(String c, String a, String d, Object v, Function<String, Object> p) {
+            this.attrParser = p;
+            this.description = d;
+            this.configAttribute = c;
+            this.argName = a;
+            this.defaultValue = v;
+        }
+
+        public Object getDefaultValue() {
+            return defaultValue;
+        }
+
+        public String getConfigAttribute() {
+            return this.configAttribute;
+        }
+
+        public String getDescription() {
+            return this.description;
+        }
+
+        public String getArgName() {
+            return this.argName;
+        }
+
+        public Function<String, Object> getAttrParser() {
+            return this.attrParser;
+        }
+    }
+
+    public class Configuration {
+        ConfigAttribute[] attributes = ConfigAttribute.values();
+        private Map<ConfigAttribute, Object> configurationValues = new ConcurrentHashMap<>();
+
+        public Configuration(String file, String[] args) {
+
+            Arrays.stream(attributes).forEach(ca -> {
+                configurationValues.put(ca, ca.getDefaultValue());
+            });
+            parseConfigFile(file);
+            parseArgs(args);
+        }
+
+        public int parseConfigFile(String configFile) {
+            int status = 0;
+            Properties props = new Properties();
+            if (Optional.ofNullable(configFile).isPresent()) {
+                try {
+                    props.load(Configuration.class.getResourceAsStream(configFile));
+                    for (Map.Entry<Object, Object> prop : props.entrySet()) {
+                        String[] kv = new String[]{(String) prop.getKey(), (String) prop.getValue()};
+                        if (!ifArgumentFoundSetToValue(kv)) {
+                            System.err.printf("file=%s : Unknown property %s with value %s%n",
+                                    configFile,
+                                    prop.getKey(),
+                                    prop.getValue());
+                            status = -1;
+                        } else {
+                            System.out.printf("file=%s : set %s to %s%n",
+                                    configFile,
+                                    prop.getKey().toString(),
+                                    prop.getValue().toString());
+                        }
+                    }
+
+                } catch (IOException e) {
+                    System.err.printf("ERROR : file=%s : Unable to find and parse the configuration file : %s%n",
+                            configFile,
+                            e.getMessage());
+                }
+            } else {
+                status = -1;
+            }
+            return status;
+        }
+
+        public void parseArgs(String[] args) {
+            if (args.length > 0) {
+                for (String arg : args) {
+                    String[] kv = arg.split("=");
+                    if (ifArgumentFoundSetToValue(kv)) {
+                        System.out.printf("argument: set %s to %s%n", kv[0], kv[1]);
+                    } else {
+                        displayHelpMessage(kv[0], kv[1]);
+                    }
+                }
+            }
+        }
+
+        public void displayHelpMessage(String unknownAttributeName, String attributeValue) {
+            displayHelpMessage();
+        }
+
+        public void displayHelpMessage() {
+            Arrays.stream(attributes).forEach(ca -> {
+                System.err.printf("- %s : %s (default value is %s)%n",
+                        ca.getArgName(),
+                        ca.getDescription(),
+                        ca.getDefaultValue().toString());
+            });
+        }
+
+        public boolean ifArgumentFoundSetToValue(String[] kv) {
+            boolean found = false;
+            for (ConfigAttribute ca : attributes) {
+                if (ca.getArgName().equals(kv[0]) || ca.getConfigAttribute().equals(kv[0])) {
+                    configurationValues.put(ca, ca.getAttrParser().apply(kv[1]));
+                    found = true;
+                    break;
+                }
+            }
+            return found;
+        }
+
+        public void setAttributes(ConfigAttribute[] values) {
+            attributes = values;
+        }
+
+        public Object get(ConfigAttribute ca) {
+            return configurationValues.get(ca);
+        }
+    }
+
+    public class Resources {
+        Map<String, Object> resources;
+
+        public Resources() {
+            resources = new ConcurrentHashMap<>();
+        }
+
+        public BufferedImage getImage(String file) {
+            BufferedImage img = null;
+            if (!resources.containsKey(file)) {
+                try {
+                    img = ImageIO.read(Main.class.getResourceAsStream(file));
+                } catch (Exception e) {
+                    System.err.printf("Unable to read the image %s", file);
+                }
+                resources.put(file, img);
+            }
+
+            return (BufferedImage) resources.get(file);
+        }
+    }
 
     public enum EntityType {
         RECTANGLE,
@@ -98,6 +294,8 @@ public class Main extends JPanel implements KeyListener {
             this.animations.put(name, a);
             if (currentAnimation.equals("")) {
                 currentAnimation = name;
+                this.width = animations.get(currentAnimation).getFrame().getWidth();
+                this.height = animations.get(currentAnimation).getFrame().getHeight();
             }
             return this;
         }
@@ -158,7 +356,10 @@ public class Main extends JPanel implements KeyListener {
         }
     }
 
-    private Map<String, Object> config;
+    private Configuration config;
+
+    private Resources resources;
+
     private JFrame frame;
     private BufferedImage renderingBuffer;
     private boolean exit;
@@ -169,8 +370,8 @@ public class Main extends JPanel implements KeyListener {
     private int debug;
 
     public Main(String[] args, String pathToConfigPropsFile) {
-        config = initialize(pathToConfigPropsFile);
-        parseArgs(config, args);
+        config = new Configuration(pathToConfigPropsFile, args);
+        initialize();
     }
 
     public static void main(String[] args) {
@@ -178,92 +379,13 @@ public class Main extends JPanel implements KeyListener {
         app.run();
     }
 
-    private void parseArgs(Map<String, Object> config, String[] args) {
-        int i = 0;
-        for (String arg : args) {
-            System.out.printf("arg[%d]: %s", i, arg);
-            i++;
-            String[] keyVal = arg.split("=");
-            config.put(keyVal[0], convert(keyVal[0], keyVal[1]));
-        }
-    }
-
-    /**
-     * Convert String key=val to (Type)val
-     *
-     * @param key
-     * @param val
-     * @return
-     */
-    public Object convert(String key, String val) {
-        switch (key) {
-            case "game.size", "size", "gs" -> {
-                String[] value = val.split("x");
-                int width = Integer.valueOf(value[0]);
-                int height = Integer.valueOf(value[1]);
-                Dimension dim = new Dimension(width, height);
-                return dim;
-            }
-            case "game.resolution", "resolution", "r" -> {
-                String[] value = val.split("x");
-                int width = Integer.valueOf(value[0]);
-                int height = Integer.valueOf(value[1]);
-                Dimension dim = new Dimension(width, height);
-                return dim;
-            }
-            case "game.physic.gravity", "gravity", "g" -> {
-                return Double.valueOf(val);
-            }
-            case "game.physic.playarea", "gpa" -> {
-                String[] value = val.split("x");
-                int width = Integer.valueOf(value[0]);
-                int height = Integer.valueOf(value[1]);
-                Dimension dim = new Dimension(width, height);
-                return dim;
-            }
-            case "game.title", "title", "t" -> {
-                return val;
-            }
-            case "game.debug", "debug", "d" -> {
-                return Integer.valueOf(val);
-            }
-            default -> {
-                return null;
-            }
-        }
-    }
-
-    public Map<String, Object> initialize(String pathToConfigFile) {
-        Properties props = new Properties();
-        Map<String, Object> config = null;
-        try {
-            props.load(Main.class.getResourceAsStream(pathToConfigFile));
-            Set<Entry<Object, Object>> propSet = props.entrySet();
-            config = new HashMap<>();
-
-            for (Entry<Object, Object> e : props.entrySet()) {
-                String key = e.getKey().toString();
-                String val = e.getValue().toString();
-                Object objVal = convert(key, val);
-                config.put(key, objVal);
-            }
-
-            config.entrySet().stream().forEach(
-                    e -> System.out.printf("key:%s,value:%s(%s)%n",
-                            e.getKey(),
-                            e.getValue().toString(),
-                            e.getValue().getClass().getSimpleName()));
-
-            this.frame = createFrame(
-                    (String) config.get("game.title"),
-                    (Dimension) config.get("game.size"),
-                    (Dimension) config.get("game.resolution"));
-            this.debug = (int) config.get("game.debug");
-        } catch (Exception e) {
-            System.err.printf("ERROR: Unable to read the configuration file '%s': %s%n", pathToConfigFile, e.getMessage());
-        }
-
-        return config;
+    public void initialize() {
+        resources = new Resources();
+        this.frame = createFrame(
+                (String) config.get(ConfigAttribute.TITLE),
+                (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
+                (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION));
+        this.debug = (int) config.get(ConfigAttribute.DEBUG);
     }
 
     private JFrame createFrame(String title, Dimension size, Dimension resolution) {
@@ -273,9 +395,9 @@ public class Main extends JPanel implements KeyListener {
         setPreferredSize(size);
         frame.setContentPane(this);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.pack();
-        frame.setIconImage(new ImageIcon("./images/sg-logo-image.png").getImage());
+        frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
 
+        frame.pack();
         frame.setVisible(true);
         frame.createBufferStrategy(2);
 
@@ -300,8 +422,8 @@ public class Main extends JPanel implements KeyListener {
 
     private void create() {
         world = new World(
-                (Double) config.get("game.physic.gravity"),
-                (Dimension) config.get("game.physic.playarea"));
+                (Double) config.get(ConfigAttribute.PHYSIC_GRAVITY),
+                (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA));
 
         addEntity(new Entity("player",
                 (int) ((world.playArea.getWidth() - 8) * 0.5),
@@ -311,29 +433,26 @@ public class Main extends JPanel implements KeyListener {
                 .setSize(32.0, 32.0)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
                 .addAnimation("walk",
-                        readAnimation(
+                        loadAnimation(
                                 "/images/sprites01.png",
                                 true,
                                 new String[]{"0,0,32,32"}))
         );
     }
 
-    private Animation readAnimation(String fileImageSource, boolean loop, String[] framesDef) {
+    private Animation loadAnimation(String imageSrcPath, boolean loop, String[] framesDef) {
         BufferedImage[] imgs = new BufferedImage[framesDef.length];
+        BufferedImage imageSource = resources.getImage(imageSrcPath);
         int i = 0;
-        try {
-            BufferedImage src = ImageIO.read(this.getClass().getResourceAsStream(fileImageSource));
-            for (String f : framesDef) {
-                String[] val = f.split(",");
-                int x = Integer.valueOf(val[0]);
-                int y = Integer.valueOf(val[1]);
-                int w = Integer.valueOf(val[2]);
-                int h = Integer.valueOf(val[3]);
-                imgs[i++] = src.getSubimage(x, y, w, h);
-            }
-        } catch (IOException e) {
-            System.err.printf("ERROR: unable to read file %s%n", fileImageSource);
+        for (String f : framesDef) {
+            String[] val = f.split(",");
+            int x = Integer.valueOf(val[0]);
+            int y = Integer.valueOf(val[1]);
+            int w = Integer.valueOf(val[2]);
+            int h = Integer.valueOf(val[3]);
+            imgs[i++] = imageSource.getSubimage(x, y, w, h);
         }
+
         return new Main.Animation(imgs).setLoop(loop);
     }
 
@@ -382,6 +501,7 @@ public class Main extends JPanel implements KeyListener {
             player.dx = (player.material.friction * player.dx);
             player.dy = (player.material.friction * player.dy);
         }
+        player.direction = player.dx >= 0 ? 1 : -1;
 
     }
 
@@ -393,7 +513,7 @@ public class Main extends JPanel implements KeyListener {
     }
 
     private void constraintsEntity(Entity e) {
-        Dimension playArea = (Dimension) config.get("game.physic.playarea");
+        Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
         e.contact = 0;
         if (e.x <= 0) {
             e.x = 0;
@@ -429,7 +549,7 @@ public class Main extends JPanel implements KeyListener {
     }
 
     private void draw() {
-        Dimension playArea = (Dimension) config.get("game.physic.playarea");
+        Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
         Graphics2D g = (Graphics2D) renderingBuffer.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -447,6 +567,9 @@ public class Main extends JPanel implements KeyListener {
         // draw something
         entities.values().forEach(e -> {
             drawEntity(g, e);
+            if (isDebugAtLeast(2)) {
+                drawDebugEntityInfo(g, e);
+            }
         });
 
         g.dispose();
@@ -459,6 +582,13 @@ public class Main extends JPanel implements KeyListener {
                 null);
         frame.getBufferStrategy().show();
 
+    }
+
+    private void drawDebugEntityInfo(Graphics2D g, Entity e) {
+        g.setColor(Color.YELLOW);
+        g.setFont(g.getFont().deriveFont(9.0f));
+        g.drawRect((int) e.x, (int) e.y, (int) e.width, (int) e.height);
+        g.drawString(String.format("#%d:%s", e.id, e.name), (int) e.x, (int) e.y - 2);
     }
 
     private boolean isDebugAtLeast(int level) {
@@ -485,10 +615,10 @@ public class Main extends JPanel implements KeyListener {
                     img = e.animations.get(e.currentAnimation).getFrame();
                 }
                 if (Optional.ofNullable(img).isPresent()) {
-                    if (e.direction > 0) {
-                        g.drawImage(e.image, (int) e.x, (int) e.y, (int) e.width, (int) e.height, null);
+                    if (e.direction >= 0) {
+                        g.drawImage(img, (int) e.x, (int) e.y, (int) e.width, (int) e.height, null);
                     } else {
-                        g.drawImage(e.image, (int) (e.x + e.width), (int) e.y, (int) -e.width, (int) e.height,
+                        g.drawImage(img, (int) (e.x + e.width), (int) e.y, (int) -e.width, (int) e.height,
                                 null);
                     }
                 }
