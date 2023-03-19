@@ -15,7 +15,7 @@ $> ./build.sh
 $> java -jar target/simpleclass.jar
 ```
 
-Available parameters:
+Available CLI arguments & configuration file parameters:
 
 | Configuration   | Argument      | Type      | Decription                                           |
 | :-------------- | :------------ | :-------- | :--------------------------------------------------- |
@@ -25,6 +25,9 @@ Available parameters:
 | game.title      | title,t       | String    | define the title for the game window                 |
 | game.debug      | debug,d       | Integer   | set the debug information level (0 to 5)             |
 
-
+Any argument can be activated by using the command line option -D
+```bash
+$> java -jar target/simpleclass.jar -Dtitle=ThisIsMyWindow
+```
 
 McG.
