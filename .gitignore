@@ -1,6 +1,11 @@
 # ignore all IDE/Editor configuration
 .idea/
 .vscode/
+*.iml
+.project
+.classpath
+.settings/
 # ignore build directories
 target/
 lib/sources.lst
+
