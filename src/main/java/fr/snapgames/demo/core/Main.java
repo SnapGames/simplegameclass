@@ -29,6 +29,7 @@ import java.util.function.Function;
  */
 public class Main extends JPanel {
 
+
     public enum ConfigAttribute {
         TITLE("game.title",
                 "title",
@@ -517,6 +518,163 @@ public class Main extends JPanel {
 
     }
 
+    public class Renderer {
+        private final Main main;
+        private JFrame frame;
+        private BufferedImage renderingBuffer;
+
+        public Renderer(Main main) {
+            this.main = main;
+            this.frame = createFrame(
+                    (String) config.get(ConfigAttribute.TITLE),
+                    (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
+                    (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION));
+        }
+
+        private JFrame createFrame(String title, Dimension size, Dimension resolution) {
+
+            JFrame frame = new JFrame(title);
+
+            setPreferredSize(size);
+            frame.setContentPane(this.main);
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
+
+            frame.pack();
+            frame.setVisible(true);
+            frame.createBufferStrategy(2);
+
+            renderingBuffer = new BufferedImage(
+                    resolution.width,
+                    resolution.height,
+                    BufferedImage.TYPE_INT_ARGB);
+
+            return frame;
+        }
+
+        public void setUserInput(UserInput ui) {
+            frame.addKeyListener(ui);
+        }
+
+        private void draw() {
+            Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
+            Graphics2D g = (Graphics2D) renderingBuffer.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            // clear rendering buffer
+            g.setColor(Color.BLACK);
+            g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
+
+            if (this.isDebugAtLeast(1)) {
+                // draw play area Limit
+                g.setColor(Color.BLUE);
+                g.drawRect(0, 0, playArea.width, playArea.height);
+                // draw 'camera' limit axis
+                g.setColor(Color.CYAN);
+                g.drawRect(10, 10, renderingBuffer.getWidth() - 20, renderingBuffer.getHeight() - 20);
+                // draw a background grid
+                g.setColor(Color.DARK_GRAY);
+                for (int ix = 0; ix < playArea.width; ix += 16) {
+                    g.drawRect(ix, 0, 16, playArea.height);
+                }
+                for (int iy = 0; iy < playArea.height; iy += 16) {
+                    g.drawRect(0, iy, playArea.width, 16);
+                }
+            }
+            // draw something
+            this.main.entities.values().forEach(e -> {
+                drawEntity(g, e);
+            });
+
+            g.dispose();
+
+            // draw buffer to window.
+            frame.getBufferStrategy().getDrawGraphics().drawImage(
+                    renderingBuffer,
+                    0, 0, frame.getWidth(), frame.getHeight(),
+                    0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight(),
+                    null);
+            frame.getBufferStrategy().show();
+
+        }
+
+        private void drawDebugEntityInfo(Graphics2D g, Entity e) {
+            double x = e.x;
+            double y = e.y;
+            if (e.relativeToParent) {
+                x = e.parent.x + e.x;
+                y = e.parent.y + e.y;
+            }
+            g.setColor(Color.YELLOW);
+            g.setFont(g.getFont().deriveFont(9.0f));
+            g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
+            g.drawString(String.format("#%d:%s", e.id, e.name), (int) x, (int) y - 2);
+        }
+
+        private boolean isDebugAtLeast(int level) {
+            return debug >= level;
+        }
+
+        private void drawEntity(Graphics2D g, Entity e) {
+            double x = e.x;
+            double y = e.y;
+            if (e.relativeToParent) {
+                x = e.parent.x + e.x;
+                y = e.parent.y + e.y;
+            }
+            switch (e.type) {
+                // draw a simple rectangle
+                case RECTANGLE -> {
+                    g.setColor(e.fillColor);
+                    g.fillRect((int) x, (int) y, (int) e.width, (int) e.height);
+                    g.setColor(e.borderColor);
+                    g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
+                }
+                // draw an ellipse
+                case ELLIPSE -> {
+                    g.setColor(e.fillColor);
+                    g.fillOval((int) x, (int) y, (int) e.width, (int) e.height);
+                    g.setColor(e.borderColor);
+                    g.drawOval((int) x, (int) y, (int) e.width, (int) e.height);
+                }
+                // draw the entity corresponding image or current animation image frame
+                case IMAGE -> {
+                    BufferedImage img = e.image;
+                    if (!e.currentAnimation.equals("")) {
+                        img = e.animations.get(e.currentAnimation).getFrame();
+                    }
+                    if (Optional.ofNullable(img).isPresent()) {
+                        if (e.direction >= 0) {
+                            g.drawImage(img, (int) x, (int) y, (int) e.width, (int) e.height, null);
+                        } else {
+                            g.drawImage(img, (int) (x + e.width), (int) y, (int) -e.width, (int) e.height,
+                                    null);
+                        }
+                    }
+                }
+                default -> {
+                    System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
+                }
+            }
+            // draw debug info if required
+            if (isDebugAtLeast(2)) {
+                drawDebugEntityInfo(g, e);
+            }
+            // display child objects
+            if (!e.getChild().isEmpty()) {
+                e.getChild().stream().forEach(ce -> {
+                    drawEntity(g, ce);
+                });
+            }
+        }
+
+        public void dispose() {
+            frame.dispose();
+            renderingBuffer = null;
+        }
+    }
+
     private boolean isPause() {
         return pause;
     }
@@ -532,9 +690,10 @@ public class Main extends JPanel {
     private Configuration config;
     private Resources resources;
     private PhysicEngine physicEngine;
+    private Renderer renderer;
+
     private UserInput userInput;
-    private JFrame frame;
-    private BufferedImage renderingBuffer;
+
     private boolean exit;
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
@@ -555,37 +714,13 @@ public class Main extends JPanel {
     public void initialize() {
         resources = new Resources();
         physicEngine = new PhysicEngine(this);
-
+        renderer = new Renderer(this);
         userInput = new UserInput(this);
-        this.frame = createFrame(
-                (String) config.get(ConfigAttribute.TITLE),
-                (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
-                (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION));
+        renderer.setUserInput(userInput);
+
         this.debug = (int) config.get(ConfigAttribute.DEBUG);
     }
 
-    private JFrame createFrame(String title, Dimension size, Dimension resolution) {
-
-        JFrame frame = new JFrame(title);
-
-        setPreferredSize(size);
-        frame.setContentPane(this);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
-
-        frame.pack();
-        frame.setVisible(true);
-        frame.createBufferStrategy(2);
-
-        renderingBuffer = new BufferedImage(
-                resolution.width,
-                resolution.height,
-                BufferedImage.TYPE_INT_ARGB);
-
-        frame.addKeyListener(userInput);
-
-        return frame;
-    }
 
     public void run() {
         System.out.printf("Main program started%n");
@@ -715,7 +850,7 @@ public class Main extends JPanel {
             if (!pause) {
                 physicEngine.update(elapsed);
             }
-            draw();
+            renderer.draw();
             waitForMs((int) (timeFrame - elapsed));
             endTime = startTime;
         }
@@ -783,122 +918,8 @@ public class Main extends JPanel {
     }
 
 
-    private void draw() {
-        Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
-        Graphics2D g = (Graphics2D) renderingBuffer.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
-        // clear rendering buffer
-        g.setColor(Color.BLACK);
-        g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
-
-        if (this.isDebugAtLeast(1)) {
-            // draw play area Limit
-            g.setColor(Color.BLUE);
-            g.drawRect(0, 0, playArea.width, playArea.height);
-            // draw 'camera' limit axis
-            g.setColor(Color.CYAN);
-            g.drawRect(10, 10, renderingBuffer.getWidth() - 20, renderingBuffer.getHeight() - 20);
-            // draw a background grid
-            g.setColor(Color.DARK_GRAY);
-            for (int ix = 0; ix < playArea.width; ix += 16) {
-                g.drawRect(ix, 0, 16, playArea.height);
-            }
-            for (int iy = 0; iy < playArea.height; iy += 16) {
-                g.drawRect(0, iy, playArea.width, 16);
-            }
-        }
-        // draw something
-        entities.values().forEach(e -> {
-            drawEntity(g, e);
-        });
-
-        g.dispose();
-
-        // draw buffer to window.
-        frame.getBufferStrategy().getDrawGraphics().drawImage(
-                renderingBuffer,
-                0, 0, frame.getWidth(), frame.getHeight(),
-                0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight(),
-                null);
-        frame.getBufferStrategy().show();
-
-    }
-
-    private void drawDebugEntityInfo(Graphics2D g, Entity e) {
-        double x = e.x;
-        double y = e.y;
-        if (e.relativeToParent) {
-            x = e.parent.x + e.x;
-            y = e.parent.y + e.y;
-        }
-        g.setColor(Color.YELLOW);
-        g.setFont(g.getFont().deriveFont(9.0f));
-        g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
-        g.drawString(String.format("#%d:%s", e.id, e.name), (int) x, (int) y - 2);
-    }
-
-    private boolean isDebugAtLeast(int level) {
-        return debug >= level;
-    }
-
-    private void drawEntity(Graphics2D g, Entity e) {
-        double x = e.x;
-        double y = e.y;
-        if (e.relativeToParent) {
-            x = e.parent.x + e.x;
-            y = e.parent.y + e.y;
-        }
-        switch (e.type) {
-            // draw a simple rectangle
-            case RECTANGLE -> {
-                g.setColor(e.fillColor);
-                g.fillRect((int) x, (int) y, (int) e.width, (int) e.height);
-                g.setColor(e.borderColor);
-                g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
-            }
-            // draw an ellipse
-            case ELLIPSE -> {
-                g.setColor(e.fillColor);
-                g.fillOval((int) x, (int) y, (int) e.width, (int) e.height);
-                g.setColor(e.borderColor);
-                g.drawOval((int) x, (int) y, (int) e.width, (int) e.height);
-            }
-            // draw the entity corresponding image or current animation image frame
-            case IMAGE -> {
-                BufferedImage img = e.image;
-                if (!e.currentAnimation.equals("")) {
-                    img = e.animations.get(e.currentAnimation).getFrame();
-                }
-                if (Optional.ofNullable(img).isPresent()) {
-                    if (e.direction >= 0) {
-                        g.drawImage(img, (int) x, (int) y, (int) e.width, (int) e.height, null);
-                    } else {
-                        g.drawImage(img, (int) (x + e.width), (int) y, (int) -e.width, (int) e.height,
-                                null);
-                    }
-                }
-            }
-            default -> {
-                System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
-            }
-        }
-        // draw debug info if required
-        if (isDebugAtLeast(2)) {
-            drawDebugEntityInfo(g, e);
-        }
-        // display child objects
-        if (!e.getChild().isEmpty()) {
-            e.getChild().stream().forEach(ce -> {
-                drawEntity(g, ce);
-            });
-        }
-    }
-
     private void dispose() {
-        frame.dispose();
-        renderingBuffer = null;
+        renderer.dispose();
     }
 
 
