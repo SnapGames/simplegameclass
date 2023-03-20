@@ -29,7 +29,6 @@ import java.util.function.Function;
  */
 public class Main extends JPanel {
 
-
     public enum ConfigAttribute {
         TITLE("game.title",
                 "title",
@@ -458,6 +457,66 @@ public class Main extends JPanel {
         }
     }
 
+    public class PhysicEngine {
+
+        Main main;
+
+        public PhysicEngine(Main main) {
+            this.main = main;
+        }
+
+        private void update(long elapsed) {
+            this.main.entities.values().stream().forEach(e -> {
+                updateEntity(e, elapsed);
+                constraintsEntity(e);
+            });
+        }
+
+        private void constraintsEntity(Entity e) {
+            Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
+            e.contact = 0;
+            if (e.x <= 0) {
+                e.x = 0;
+                e.dx = -(e.material.elasticity * e.dx);
+                e.contact += 1;
+            }
+            if (e.y <= 0) {
+                e.y = 0;
+                e.dy = -(e.material.elasticity * e.dy);
+                e.contact += 2;
+            }
+            if (e.x + e.width > playArea.width) {
+                e.x = playArea.width - e.width;
+                e.dx = -(e.material.elasticity * e.dx);
+                e.contact += 4;
+            }
+            if (e.y + e.height > playArea.height) {
+                e.y = playArea.height - e.height;
+                e.dy = -(e.material.elasticity * e.dy);
+                e.contact += 8;
+            }
+
+        }
+
+        private void updateEntity(Entity e, long elapsed) {
+            double TIME_FACTOR = 0.045;
+            double time = elapsed * TIME_FACTOR;
+            e.dy += world.gravity / e.mass;
+            if (e.contact > 0) {
+                e.dx *= e.material.friction;
+                e.dy *= e.material.friction;
+            }
+            e.x += e.dx * time;
+            e.y += e.dy * time;
+            // update animation with next frame (if required)
+            if (!e.currentAnimation.isEmpty()) {
+                e.animations.get(e.currentAnimation).update(elapsed);
+            }
+            e.getChild().stream().forEach(c -> updateEntity(c, elapsed));
+        }
+
+    }
+
     private boolean isPause() {
         return pause;
     }
@@ -472,6 +531,7 @@ public class Main extends JPanel {
 
     private Configuration config;
     private Resources resources;
+    private PhysicEngine physicEngine;
     private UserInput userInput;
     private JFrame frame;
     private BufferedImage renderingBuffer;
@@ -494,6 +554,8 @@ public class Main extends JPanel {
 
     public void initialize() {
         resources = new Resources();
+        physicEngine = new PhysicEngine(this);
+
         userInput = new UserInput(this);
         this.frame = createFrame(
                 (String) config.get(ConfigAttribute.TITLE),
@@ -651,7 +713,7 @@ public class Main extends JPanel {
             elapsed = startTime - endTime;
             input();
             if (!pause) {
-                update(elapsed);
+                physicEngine.update(elapsed);
             }
             draw();
             waitForMs((int) (timeFrame - elapsed));
@@ -720,55 +782,6 @@ public class Main extends JPanel {
 
     }
 
-    private void update(long elapsed) {
-        entities.values().stream().forEach(e -> {
-            updateEntity(e, elapsed);
-            constraintsEntity(e);
-        });
-    }
-
-    private void constraintsEntity(Entity e) {
-        Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
-        e.contact = 0;
-        if (e.x <= 0) {
-            e.x = 0;
-            e.dx = -(e.material.elasticity * e.dx);
-            e.contact += 1;
-        }
-        if (e.y <= 0) {
-            e.y = 0;
-            e.dy = -(e.material.elasticity * e.dy);
-            e.contact += 2;
-        }
-        if (e.x + e.width > playArea.width) {
-            e.x = playArea.width - e.width;
-            e.dx = -(e.material.elasticity * e.dx);
-            e.contact += 4;
-        }
-        if (e.y + e.height > playArea.height) {
-            e.y = playArea.height - e.height;
-            e.dy = -(e.material.elasticity * e.dy);
-            e.contact += 8;
-        }
-
-    }
-
-    private void updateEntity(Entity e, long elapsed) {
-        double TIME_FACTOR = 0.045;
-        double time = elapsed * TIME_FACTOR;
-        e.dy += world.gravity / e.mass;
-        if (e.contact > 0) {
-            e.dx *= e.material.friction;
-            e.dy *= e.material.friction;
-        }
-        e.x += e.dx * time;
-        e.y += e.dy * time;
-        // update animation with next frame (if required)
-        if (!e.currentAnimation.isEmpty()) {
-            e.animations.get(e.currentAnimation).update(elapsed);
-        }
-        e.getChild().stream().forEach(c -> updateEntity(c, elapsed));
-    }
 
     private void draw() {
         Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
