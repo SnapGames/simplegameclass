@@ -308,7 +308,7 @@ public class Main extends JPanel {
 
         Map<String, Animation> animations = new HashMap<>();
         String currentAnimation = "";
-        Map<String,Object> attributes = new HashMap<>();
+        Map<String, Object> attributes = new HashMap<>();
 
         public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
             this.name = name;
@@ -371,7 +371,41 @@ public class Main extends JPanel {
         }
 
         public Object getAttribute(String key, double defaultValue) {
-            return attributes.getOrDefault(key,defaultValue);
+            return attributes.getOrDefault(key, defaultValue);
+        }
+    }
+
+    public class Camera extends Entity {
+        Entity target;
+        double tween;
+        Dimension viewport;
+
+        public Camera(String name) {
+            super(name, 0, 0, null, null);
+        }
+
+        public Camera setTarget(Entity t) {
+            this.target = t;
+            return this;
+        }
+
+        public Camera setTween(double tw) {
+            this.tween = tw;
+            return this;
+        }
+
+        public Camera setViewport(Dimension vp) {
+            this.viewport = vp;
+            return this;
+        }
+
+        public void update(long elapsed) {
+            this.x += Math
+                    .ceil((target.x + (target.width * 0.5) - ((viewport.getWidth()) * 0.5) - this.x)
+                            * tween * Math.min(elapsed, 10));
+            this.y += Math
+                    .ceil((target.y + (target.height * 0.5) - ((viewport.getHeight()) * 0.5) - this.y)
+                            * tween * Math.min(elapsed, 10));
         }
     }
 
@@ -712,6 +746,7 @@ public class Main extends JPanel {
 
     private UserInput userInput;
 
+    private Camera camera;
     private boolean exit;
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
@@ -830,7 +865,16 @@ public class Main extends JPanel {
                         .setParentRelative(true));
         addEntity(player);
 
+        Camera cam = new Camera("myCam")
+                .setTarget(player)
+                .setTween(0.02)
+                .setViewport(new Dimension(320, 200));
+        addCamera(cam);
 
+    }
+
+    private void addCamera(Camera cam) {
+        this.camera = cam;
     }
 
     private Animation loadAnimation(String imageSrcPath, boolean loop, String[] framesDef) {
@@ -896,9 +940,9 @@ public class Main extends JPanel {
         } else {
             player.currentAnimation = "idle";
         }
-        double step = (double)player.getAttribute("step",0.2);
-        double jump = (double)player.getAttribute("jump",-4.0 * 0.2);
-        
+        double step = (double) player.getAttribute("step", 0.2);
+        double jump = (double) player.getAttribute("jump", -4.0 * 0.2);
+
         if (userInput.getKey(KeyEvent.VK_UP)) {
             player.dy += jump;
             player.currentAnimation = "jump";
