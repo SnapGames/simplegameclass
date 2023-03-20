@@ -308,6 +308,7 @@ public class Main extends JPanel {
 
         Map<String, Animation> animations = new HashMap<>();
         String currentAnimation = "";
+        Map<String,Object> attributes = new HashMap<>();
 
         public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
             this.name = name;
@@ -367,6 +368,10 @@ public class Main extends JPanel {
         public Entity setParentRelative(boolean pr) {
             this.relativeToParent = pr;
             return this;
+        }
+
+        public Object getAttribute(String key, double defaultValue) {
+            return attributes.getOrDefault(key,defaultValue);
         }
     }
 
@@ -450,12 +455,23 @@ public class Main extends JPanel {
                     || e.getKeyCode() == KeyEvent.VK_P) {
                 main.setPause(!main.isPause());
             }
+            if (e.getKeyCode() == KeyEvent.VK_D) {
+                main.setDebugLevel(main.getDebugLevel() + 1 < 5 ? main.getDebugLevel() + 1 : 0);
+            }
 
         }
 
         private boolean getKey(int k) {
             return keys[k];
         }
+    }
+
+    private int getDebugLevel() {
+        return debug;
+    }
+
+    private void setDebugLevel(int d) {
+        this.debug = d;
     }
 
     public class PhysicEngine {
@@ -502,13 +518,15 @@ public class Main extends JPanel {
         private void updateEntity(Entity e, long elapsed) {
             double TIME_FACTOR = 0.045;
             double time = elapsed * TIME_FACTOR;
-            e.dy += world.gravity / e.mass;
-            if (e.contact > 0) {
-                e.dx *= e.material.friction;
-                e.dy *= e.material.friction;
+            if (!e.relativeToParent) {
+                e.dy += world.gravity * 10.0 / e.mass;
+                if (e.contact > 0) {
+                    e.dx *= e.material.friction;
+                    e.dy *= e.material.friction;
+                }
+                e.x += e.dx * time;
+                e.y += e.dy * time;
             }
-            e.x += e.dx * time;
-            e.y += e.dy * time;
             // update animation with next frame (if required)
             if (!e.currentAnimation.isEmpty()) {
                 e.animations.get(e.currentAnimation).update(elapsed);
@@ -743,6 +761,7 @@ public class Main extends JPanel {
                 Color.RED,
                 Color.BLACK)
                 .setSize(32.0, 32.0)
+                .setMass(20.0)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
                 .addAnimation("idle",
                         loadAnimation(
@@ -803,10 +822,10 @@ public class Main extends JPanel {
                                         "/images/spinning-crystal.png",
                                         true,
                                         new String[]{
-                                                "0,0,32,32,500",  // frame 1
-                                                "32,0,32,32,500", // frame 2
-                                                "64,0,32,32,500", // frame 3
-                                                "96,0,32,32,500"  // frame 4
+                                                "0,0,32,32,150",  // frame 1
+                                                "32,0,32,32,150", // frame 2
+                                                "64,0,32,32,150", // frame 3
+                                                "96,0,32,32,150"  // frame 4
                                         }))
                         .setParentRelative(true));
         addEntity(player);
@@ -877,8 +896,9 @@ public class Main extends JPanel {
         } else {
             player.currentAnimation = "idle";
         }
-        double step = 0.2;
-        double jump = -8 * step;
+        double step = (double)player.getAttribute("step",0.2);
+        double jump = (double)player.getAttribute("jump",-4.0 * 0.2);
+        
         if (userInput.getKey(KeyEvent.VK_UP)) {
             player.dy += jump;
             player.currentAnimation = "jump";
