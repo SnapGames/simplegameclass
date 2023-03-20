@@ -301,6 +301,11 @@ public class Main extends JPanel {
         Material material = new Material("default", 1.0, 0.60, 0.998);
         int contact;
 
+        boolean relativeToParent = false;
+
+        Entity parent;
+        private List<Entity> child = new ArrayList<>();
+
         Map<String, Animation> animations = new HashMap<>();
         String currentAnimation = "";
 
@@ -343,6 +348,26 @@ public class Main extends JPanel {
             this.height = h;
             return this;
         }
+
+        public List<Entity> getChild() {
+            return child;
+        }
+
+        public Entity addChild(Entity c) {
+            c.parent = this;
+            this.child.add(c);
+            return this;
+        }
+
+        public Entity setType(EntityType t) {
+            this.type = t;
+            return this;
+        }
+
+        public Entity setParentRelative(boolean pr) {
+            this.relativeToParent = pr;
+            return this;
+        }
     }
 
     public class Animation {
@@ -351,8 +376,12 @@ public class Main extends JPanel {
         boolean loop = true;
         boolean end = false;
 
-        public Animation(BufferedImage[] f) {
+        long animationTime = 0;
+        private long[] frameTimes;
+
+        public Animation(BufferedImage[] f, long[] frameTimes) {
             this.frames = f;
+            this.frameTimes = frameTimes;
 
         }
 
@@ -369,16 +398,18 @@ public class Main extends JPanel {
             }
         }
 
-        public void next() {
-            if (index + 1 < frames.length) {
-                index++;
-            } else {
-                if (loop) {
-                    index = 0;
-
+        public void update(long elapsed) {
+            this.animationTime += elapsed;
+            if (this.animationTime > this.frameTimes[this.index]) {
+                this.animationTime = 0;
+                if (this.index + 1 < this.frames.length) {
+                    this.index++;
                 } else {
-                    index = 0;
-                    end = true;
+                    if (this.loop) {
+                        this.index = 0;
+                    } else {
+                        this.end = true;
+                    }
                 }
             }
         }
@@ -508,23 +539,87 @@ public class Main extends JPanel {
                 (Double) config.get(ConfigAttribute.PHYSIC_GRAVITY),
                 (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA));
 
-        addEntity(new Entity("player",
+        // add the main player entity.
+        Entity player = new Entity("player",
                 (int) ((world.playArea.getWidth() - 8) * 0.5),
                 (int) ((world.playArea.getHeight() - 8) * 0.5),
                 Color.RED,
                 Color.BLACK)
                 .setSize(32.0, 32.0)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
+                .addAnimation("idle",
+                        loadAnimation(
+                                "/images/sprites01.png",
+                                true,
+                                new String[]{
+                                        "0,0,32,32,500",
+                                        "32,0,32,32,60",
+                                        "64,0,32,32,60",
+                                        "96,0,32,32,60",
+                                        "128,0,32,32,60",
+                                        "160,0,32,32,60",
+                                        "192,0,32,32,60",
+                                        "224,0,32,32,800",
+                                        "256,0,32,32,60",
+                                        "288,0,32,32,60",
+                                        "320,0,32,32,60",
+                                        "352,0,32,32,60",
+                                        "384,0,32,32,60"
+                                }))
                 .addAnimation("walk",
                         loadAnimation(
                                 "/images/sprites01.png",
                                 true,
-                                new String[]{"0,0,32,32"}))
-        );
+                                new String[]{
+                                        "0,32,32,32,60",
+                                        "32,32,32,32,60",
+                                        "64,32,32,32,60",
+                                        "96,32,32,32,60",
+                                        "128,32,32,32,60",
+                                        "160,32,32,32,60",
+                                        "192,32,32,32,60",
+                                        "224,32,32,32,60"
+                                }))
+                .addAnimation("jump",
+                        loadAnimation(
+                                "/images/sprites01.png",
+                                true,
+                                new String[]{
+                                        "0,160,32,32,60",
+                                        "32,160,32,32,60",
+                                        "64,160,32,32,60",
+                                }))
+                .addAnimation("fall",
+                        loadAnimation(
+                                "/images/sprites01.png",
+                                true,
+                                new String[]{
+                                        "96,160,32,32,60",
+                                        "128,160,32,32,60",
+                                        "160,160,32,32,60"
+                                }));
+        player.addChild(
+                new Entity("crystal_1", -2, -24, Color.RED, Color.YELLOW)
+                        .setSize(16, 16)
+                        .addAnimation("spinning_crystal",
+                                loadAnimation(
+                                        "/images/spinning-crystal.png",
+                                        true,
+                                        new String[]{
+                                                "0,0,32,32,500",  // frame 1
+                                                "32,0,32,32,500", // frame 2
+                                                "64,0,32,32,500", // frame 3
+                                                "96,0,32,32,500"  // frame 4
+                                        }))
+                        .setParentRelative(true));
+        addEntity(player);
+
+
     }
 
     private Animation loadAnimation(String imageSrcPath, boolean loop, String[] framesDef) {
         BufferedImage[] imgs = new BufferedImage[framesDef.length];
+        long[] frameTimes = new long[framesDef.length];
         BufferedImage imageSource = resources.getImage(imageSrcPath);
         int i = 0;
         for (String f : framesDef) {
@@ -533,10 +628,13 @@ public class Main extends JPanel {
             int y = Integer.valueOf(val[1]);
             int w = Integer.valueOf(val[2]);
             int h = Integer.valueOf(val[3]);
-            imgs[i++] = imageSource.getSubimage(x, y, w, h);
+            int frameTime = Integer.valueOf(val[4]);
+            imgs[i] = imageSource.getSubimage(x, y, w, h);
+            frameTimes[i] = frameTime;
+            i++;
         }
 
-        return new Main.Animation(imgs).setLoop(loop);
+        return new Main.Animation(imgs, frameTimes).setLoop(loop);
     }
 
     private void addEntity(Entity entity) {
@@ -575,13 +673,23 @@ public class Main extends JPanel {
     private void input() {
         Entity player = entities.get("player");
         boolean move = false;
+        if (player.currentAnimation.equals("jump")) {
+            player.currentAnimation = "idle";
+        } else if (player.currentAnimation.equals("jump") && player.contact != 0) {
+            player.currentAnimation = "idle";
+        } else {
+            player.currentAnimation = "idle";
+        }
         double step = 0.2;
+        double jump = -8 * step;
         if (userInput.getKey(KeyEvent.VK_UP)) {
-            player.dy += -(8 * step);
+            player.dy += jump;
+            player.currentAnimation = "jump";
             move = true;
         }
         if (userInput.getKey(KeyEvent.VK_DOWN)) {
             player.dy += step;
+            player.currentAnimation = "jump";
             move = true;
         }
         if (userInput.getKey(KeyEvent.VK_LEFT)) {
@@ -595,6 +703,18 @@ public class Main extends JPanel {
         if (!move) {
             player.dx = (player.material.friction * player.dx);
             player.dy = (player.material.friction * player.dy);
+
+            player.currentAnimation = "idle";
+        } else {
+            if (player.dx != 0) {
+                player.currentAnimation = "walk";
+            }
+            /*
+            if (Math.abs(player.dy) < 5.0) {
+                player.currentAnimation = "fall";
+            }
+            */
+
         }
         player.direction = player.dx >= 0 ? 1 : -1;
 
@@ -643,6 +763,11 @@ public class Main extends JPanel {
         }
         e.x += e.dx * time;
         e.y += e.dy * time;
+        // update animation with next frame (if required)
+        if (!e.currentAnimation.isEmpty()) {
+            e.animations.get(e.currentAnimation).update(elapsed);
+        }
+        e.getChild().stream().forEach(c -> updateEntity(c, elapsed));
     }
 
     private void draw() {
@@ -656,17 +781,24 @@ public class Main extends JPanel {
         g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
 
         if (this.isDebugAtLeast(1)) {
-            g.setColor(Color.YELLOW);
+            // draw play area Limit
+            g.setColor(Color.BLUE);
             g.drawRect(0, 0, playArea.width, playArea.height);
-            g.setColor(Color.gray);
+            // draw 'camera' limit axis
+            g.setColor(Color.CYAN);
             g.drawRect(10, 10, renderingBuffer.getWidth() - 20, renderingBuffer.getHeight() - 20);
+            // draw a background grid
+            g.setColor(Color.DARK_GRAY);
+            for (int ix = 0; ix < playArea.width; ix += 16) {
+                g.drawRect(ix, 0, 16, playArea.height);
+            }
+            for (int iy = 0; iy < playArea.height; iy += 16) {
+                g.drawRect(0, iy, playArea.width, 16);
+            }
         }
         // draw something
         entities.values().forEach(e -> {
             drawEntity(g, e);
-            if (isDebugAtLeast(2)) {
-                drawDebugEntityInfo(g, e);
-            }
         });
 
         g.dispose();
@@ -682,30 +814,45 @@ public class Main extends JPanel {
     }
 
     private void drawDebugEntityInfo(Graphics2D g, Entity e) {
+        double x = e.x;
+        double y = e.y;
+        if (e.relativeToParent) {
+            x = e.parent.x + e.x;
+            y = e.parent.y + e.y;
+        }
         g.setColor(Color.YELLOW);
         g.setFont(g.getFont().deriveFont(9.0f));
-        g.drawRect((int) e.x, (int) e.y, (int) e.width, (int) e.height);
-        g.drawString(String.format("#%d:%s", e.id, e.name), (int) e.x, (int) e.y - 2);
+        g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
+        g.drawString(String.format("#%d:%s", e.id, e.name), (int) x, (int) y - 2);
     }
 
     private boolean isDebugAtLeast(int level) {
         return debug >= level;
     }
 
-    private static void drawEntity(Graphics2D g, Entity e) {
+    private void drawEntity(Graphics2D g, Entity e) {
+        double x = e.x;
+        double y = e.y;
+        if (e.relativeToParent) {
+            x = e.parent.x + e.x;
+            y = e.parent.y + e.y;
+        }
         switch (e.type) {
+            // draw a simple rectangle
             case RECTANGLE -> {
                 g.setColor(e.fillColor);
-                g.fillRect((int) e.x, (int) e.y, (int) e.width, (int) e.height);
+                g.fillRect((int) x, (int) y, (int) e.width, (int) e.height);
                 g.setColor(e.borderColor);
-                g.drawRect((int) e.x, (int) e.y, (int) e.width, (int) e.height);
+                g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
             }
+            // draw an ellipse
             case ELLIPSE -> {
                 g.setColor(e.fillColor);
-                g.fillOval((int) e.x, (int) e.y, (int) e.width, (int) e.height);
+                g.fillOval((int) x, (int) y, (int) e.width, (int) e.height);
                 g.setColor(e.borderColor);
-                g.drawOval((int) e.x, (int) e.y, (int) e.width, (int) e.height);
+                g.drawOval((int) x, (int) y, (int) e.width, (int) e.height);
             }
+            // draw the entity corresponding image or current animation image frame
             case IMAGE -> {
                 BufferedImage img = e.image;
                 if (!e.currentAnimation.equals("")) {
@@ -713,9 +860,9 @@ public class Main extends JPanel {
                 }
                 if (Optional.ofNullable(img).isPresent()) {
                     if (e.direction >= 0) {
-                        g.drawImage(img, (int) e.x, (int) e.y, (int) e.width, (int) e.height, null);
+                        g.drawImage(img, (int) x, (int) y, (int) e.width, (int) e.height, null);
                     } else {
-                        g.drawImage(img, (int) (e.x + e.width), (int) e.y, (int) -e.width, (int) e.height,
+                        g.drawImage(img, (int) (x + e.width), (int) y, (int) -e.width, (int) e.height,
                                 null);
                     }
                 }
@@ -723,6 +870,16 @@ public class Main extends JPanel {
             default -> {
                 System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
             }
+        }
+        // draw debug info if required
+        if (isDebugAtLeast(2)) {
+            drawDebugEntityInfo(g, e);
+        }
+        // display child objects
+        if (!e.getChild().isEmpty()) {
+            e.getChild().stream().forEach(ce -> {
+                drawEntity(g, ce);
+            });
         }
     }
 
