@@ -1,5 +1,10 @@
 package fr.snapgames.demo.core;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.net.URISyntaxException;
+import java.security.CodeSource;
 import java.util.*;
 
 import javax.imageio.ImageIO;
@@ -123,8 +128,36 @@ public class Main extends JPanel implements KeyListener {
             int status = 0;
             Properties props = new Properties();
             if (Optional.ofNullable(configFile).isPresent()) {
+                // try to read custom file
+                String jarDir = "";
+                String externalConfigFile = "";
                 try {
-                    props.load(Configuration.class.getResourceAsStream(configFile));
+                    CodeSource codeSource = Main.class.getProtectionDomain().getCodeSource();
+                    File jarFile = new File(codeSource.getLocation().toURI().getPath());
+                    jarDir = jarFile.getParentFile().getPath();
+                    externalConfigFile = jarDir + File.separator + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1) : configFile);
+                    props.load(new FileReader(externalConfigFile));
+                    System.out.printf("INFO : file=%s : find and parse the side part configuration file.%n",
+                            externalConfigFile);
+                } catch (URISyntaxException | IOException e) {
+                    System.out.printf(
+                            "WARNING : Side part configuration file not found: %s%n",
+                            e.getMessage());
+                }
+                // else read default jar embedded file
+                if (props.entrySet().size() == 0) {
+                    try {
+                        props.load(Configuration.class.getResourceAsStream(configFile));
+                        System.out.printf("INFO : file=%s : find and parse the JAR embedded configuration file.%n",
+                                configFile);
+                    } catch (IOException e) {
+                        System.err.printf("ERROR : file=%s : Unable to find and parse the JAR embedded configuration file : %s%n",
+                                configFile,
+                                e.getMessage());
+                    }
+                }
+                // if properties values has been loaded
+                if (props.entrySet().size() > 0) {
                     for (Map.Entry<Object, Object> prop : props.entrySet()) {
                         String[] kv = new String[]{(String) prop.getKey(), (String) prop.getValue()};
                         if (!ifArgumentFoundSetToValue(kv)) {
@@ -141,10 +174,10 @@ public class Main extends JPanel implements KeyListener {
                         }
                     }
 
-                } catch (IOException e) {
-                    System.err.printf("ERROR : file=%s : Unable to find and parse the configuration file : %s%n",
-                            configFile,
-                            e.getMessage());
+                } else {
+                    System.err.printf("file=%s : No file %s has been loaded, error in configuration file.%n",
+                            configFile);
+                    status = -1;
                 }
             } else {
                 status = -1;
@@ -355,7 +388,6 @@ public class Main extends JPanel implements KeyListener {
             return this;
         }
     }
-
 
 
     private Configuration config;

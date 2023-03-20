@@ -1,11 +1,11 @@
 #!/bin/bash
 #!/bin/sh
 cd ./
-export PROGRAM_NAME=simpleclass
+export PROGRAM_NAME=simplegameclass
 export PROGRAM_VERSION=1.0
-export PROGRAM_TITLE=SimpleClass
-export MAINCLASS=fr.snapgames.demo.core.Main
-# pathes
+export PROGRAM_TITLE=SimpleGameClass
+export MAIN_CLASS=fr.snapgames.demo.core.Main
+# paths
 export SRC=./src
 export LIBS=./lib
 export TARGET=./target
@@ -20,7 +20,7 @@ echo "Build of program '$PROGRAM_NAME' ..."
 echo "-----------"
 echo "|_ 1. Create Manifest file '$TARGET/manifest.mf'"
 echo 'Manifest-Version: $PROGRAM_NAME'>$TARGET/manifest.mf
-echo "Main-Class: $MAINCLASS">>$TARGET/manifest.mf
+echo "Main-Class: $MAIN_CLASS">>$TARGET/manifest.mf
 echo "Implementation-Title: $PROGRAM_NAME">>$TARGET/manifest.mf
 echo "Implementation-Version: build_N$GIT_COMIT_ID">>$TARGET/manifest.mf
 echo "Implementation-Vendor: SnapGames">>$TARGET/manifest.mf
@@ -40,7 +40,7 @@ echo "   |_ done."
 echo "|_ 4. create run file '$PROGRAM_NAME.run'..."
 mkdir -p $BUILD
 cat $LIBS/stub.sh $TARGET/$PROGRAM_NAME.jar > $BUILD/$PROGRAM_NAME.run
-chmod +x $BUILD/$PROGRAM_NAME.run 
+chmod +x $BUILD/$PROGRAM_NAME.run
 echo "   |_ done."
 echo "-----------"
 echo "... '$PROGRAM_NAME' is built".
