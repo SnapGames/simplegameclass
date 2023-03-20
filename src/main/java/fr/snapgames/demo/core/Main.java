@@ -1,7 +1,6 @@
 package fr.snapgames.demo.core;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.net.URISyntaxException;
 import java.security.CodeSource;
@@ -28,7 +27,7 @@ import java.util.function.Function;
  * @author Frédéric Delorme
  * @since 1.0.0
  */
-public class Main extends JPanel implements KeyListener {
+public class Main extends JPanel {
 
 
     public enum ConfigAttribute {
@@ -128,34 +127,35 @@ public class Main extends JPanel implements KeyListener {
             int status = 0;
             Properties props = new Properties();
             if (Optional.ofNullable(configFile).isPresent()) {
-                // try to read custom file
+                // Read default jar embedded file
+                try {
+                    props.load(Configuration.class.getResourceAsStream(configFile));
+                    System.out.printf("INFO : file=%s : find and parse the JAR embedded configuration file.%n",
+                            configFile);
+                } catch (IOException e) {
+                    System.err.printf("ERROR : file=%s : Unable to find and parse the JAR embedded configuration file : %s%n",
+                            configFile,
+                            e.getMessage());
+                }
+
+                // Overload it with custom file if exists
                 String jarDir = "";
                 String externalConfigFile = "";
                 try {
                     CodeSource codeSource = Main.class.getProtectionDomain().getCodeSource();
                     File jarFile = new File(codeSource.getLocation().toURI().getPath());
                     jarDir = jarFile.getParentFile().getPath();
-                    externalConfigFile = jarDir + File.separator + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1) : configFile);
+                    externalConfigFile = jarDir + File.separator + "my-" + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1) : configFile);
                     props.load(new FileReader(externalConfigFile));
-                    System.out.printf("INFO : file=%s : find and parse the side part configuration file.%n",
+                    System.out.printf("INFO : file=%s : configuration overloaded with side part configuration file.%n",
                             externalConfigFile);
                 } catch (URISyntaxException | IOException e) {
                     System.out.printf(
                             "WARNING : Side part configuration file not found: %s%n",
                             e.getMessage());
                 }
-                // else read default jar embedded file
-                if (props.entrySet().size() == 0) {
-                    try {
-                        props.load(Configuration.class.getResourceAsStream(configFile));
-                        System.out.printf("INFO : file=%s : find and parse the JAR embedded configuration file.%n",
-                                configFile);
-                    } catch (IOException e) {
-                        System.err.printf("ERROR : file=%s : Unable to find and parse the JAR embedded configuration file : %s%n",
-                                configFile,
-                                e.getMessage());
-                    }
-                }
+
+
                 // if properties values has been loaded
                 if (props.entrySet().size() > 0) {
                     for (Map.Entry<Object, Object> prop : props.entrySet()) {
@@ -389,18 +389,66 @@ public class Main extends JPanel implements KeyListener {
         }
     }
 
+    public class UserInput implements KeyListener {
+
+        private final Main main;
+        private boolean[] keys = new boolean[65636];
+
+        public UserInput(Main main) {
+            this.main = main;
+        }
+
+        @Override
+        public void keyTyped(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+            keys[e.getKeyCode()] = true;
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+            keys[e.getKeyCode()] = false;
+
+            if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                main.setExit(true);
+            }
+            if (e.getKeyCode() == KeyEvent.VK_PAUSE
+                    || e.getKeyCode() == KeyEvent.VK_P) {
+                main.setPause(!main.isPause());
+            }
+
+        }
+
+        private boolean getKey(int k) {
+            return keys[k];
+        }
+    }
+
+    private boolean isPause() {
+        return pause;
+    }
+
+    private void setPause(boolean p) {
+        this.pause = p;
+    }
+
+    private void setExit(boolean e) {
+        this.exit = e;
+    }
 
     private Configuration config;
-
     private Resources resources;
-
+    private UserInput userInput;
     private JFrame frame;
     private BufferedImage renderingBuffer;
     private boolean exit;
+    private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
     World world;
 
-    private boolean[] keys = new boolean[65636];
     private int debug;
 
     public Main(String[] args, String pathToConfigPropsFile) {
@@ -415,6 +463,7 @@ public class Main extends JPanel implements KeyListener {
 
     public void initialize() {
         resources = new Resources();
+        userInput = new UserInput(this);
         this.frame = createFrame(
                 (String) config.get(ConfigAttribute.TITLE),
                 (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
@@ -440,7 +489,7 @@ public class Main extends JPanel implements KeyListener {
                 resolution.height,
                 BufferedImage.TYPE_INT_ARGB);
 
-        frame.addKeyListener(this);
+        frame.addKeyListener(userInput);
 
         return frame;
     }
@@ -495,15 +544,27 @@ public class Main extends JPanel implements KeyListener {
     }
 
     private void loop() {
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime;
+        long elapsed = 0;
+        double timeFrame = 1000.0 / 60.0;
         while (!exit) {
+            startTime = System.currentTimeMillis();
+            elapsed = startTime - endTime;
             input();
-            update();
+            if (!pause) {
+                update(elapsed);
+            }
             draw();
-            waitForMs(16);
+            waitForMs((int) (timeFrame - elapsed));
+            endTime = startTime;
         }
     }
 
     private void waitForMs(int ms) {
+        if (ms < 0) {
+            ms = 1;
+        }
         try {
             Thread.sleep(ms);
         } catch (InterruptedException e) {
@@ -515,19 +576,19 @@ public class Main extends JPanel implements KeyListener {
         Entity player = entities.get("player");
         boolean move = false;
         double step = 0.2;
-        if (getKey(KeyEvent.VK_UP)) {
+        if (userInput.getKey(KeyEvent.VK_UP)) {
             player.dy += -(8 * step);
             move = true;
         }
-        if (getKey(KeyEvent.VK_DOWN)) {
+        if (userInput.getKey(KeyEvent.VK_DOWN)) {
             player.dy += step;
             move = true;
         }
-        if (getKey(KeyEvent.VK_LEFT)) {
+        if (userInput.getKey(KeyEvent.VK_LEFT)) {
             player.dx += -step;
             move = true;
         }
-        if (getKey(KeyEvent.VK_RIGHT)) {
+        if (userInput.getKey(KeyEvent.VK_RIGHT)) {
             player.dx += step;
             move = true;
         }
@@ -539,9 +600,9 @@ public class Main extends JPanel implements KeyListener {
 
     }
 
-    private void update() {
+    private void update(long elapsed) {
         entities.values().stream().forEach(e -> {
-            updateEntity(e);
+            updateEntity(e, elapsed);
             constraintsEntity(e);
         });
     }
@@ -572,14 +633,16 @@ public class Main extends JPanel implements KeyListener {
 
     }
 
-    private void updateEntity(Entity e) {
+    private void updateEntity(Entity e, long elapsed) {
+        double TIME_FACTOR = 0.045;
+        double time = elapsed * TIME_FACTOR;
         e.dy += world.gravity / e.mass;
         if (e.contact > 0) {
             e.dx *= e.material.friction;
             e.dy *= e.material.friction;
         }
-        e.x += e.dx;
-        e.y += e.dy;
+        e.x += e.dx * time;
+        e.y += e.dy * time;
     }
 
     private void draw() {
@@ -668,27 +731,5 @@ public class Main extends JPanel implements KeyListener {
         renderingBuffer = null;
     }
 
-    @Override
-    public void keyTyped(KeyEvent e) {
-
-    }
-
-    @Override
-    public void keyPressed(KeyEvent e) {
-        keys[e.getKeyCode()] = true;
-    }
-
-    @Override
-    public void keyReleased(KeyEvent e) {
-        keys[e.getKeyCode()] = false;
-
-        if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-            exit = true;
-        }
-    }
-
-    private boolean getKey(int k) {
-        return keys[k];
-    }
 
 }
