@@ -5,13 +5,13 @@ A simple `Game`  class project will all inside.
 ## build
 
 ```bash
-$> ./build.sh 
+build.sh 
 ```
 
 ## run
 
 ```bash
-$> java -jar target/simpleclass.jar
+java -jar target/simpleclass.jar
 ```
 
 Available CLI arguments & configuration file parameters:
