@@ -763,13 +763,11 @@ public class Main extends JPanel {
         }
         e.x += e.dx * time;
         e.y += e.dy * time;
-
         // update animation with next frame (if required)
         if (!e.currentAnimation.isEmpty()) {
             e.animations.get(e.currentAnimation).update(elapsed);
         }
         e.getChild().stream().forEach(c -> updateEntity(c, elapsed));
-        
     }
 
     private void draw() {
