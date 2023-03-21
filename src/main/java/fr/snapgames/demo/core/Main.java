@@ -287,6 +287,9 @@ public class Main extends JPanel {
         private boolean fixedToCamera;
         private boolean active = true;
 
+        private long duration = -1;
+        private long live = 0;
+
         public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
             this.name = name;
             this.x = x;
@@ -369,9 +372,11 @@ public class Main extends JPanel {
         public boolean isFixedToCamera() {
             return fixedToCamera;
         }
+
         public boolean isRelativeToParent() {
             return relativeToParent;
         }
+
         public boolean isActive() {
             return this.active;
         }
@@ -380,6 +385,7 @@ public class Main extends JPanel {
             this.priority = p;
             return this;
         }
+
         public List<Behavior<Entity>> getBehaviors() {
             return behaviors;
         }
@@ -414,6 +420,19 @@ public class Main extends JPanel {
         public TextEntity setFont(Font f) {
             this.font = f;
             return this;
+        }
+    }
+
+    public class Particle extends Entity {
+        int nbParticles = 0;
+
+        public Particle(String name, int x, int y, int nbParticles) {
+            super(name, x, y, null, null);
+            this.nbParticles = nbParticles;
+        }
+
+        public void createParticle(Behavior<Particle> bp) {
+            // TODO: create behavior to generate particle
         }
     }
 
@@ -610,14 +629,14 @@ public class Main extends JPanel {
 
         private void update(long elapsed) {
             this.main.entities.values().stream()
-                .filter(e -> !(e instanceof Camera) && e.isActive())
-                .sorted((e1, e2) -> e1.priority < e2.priority ? 1 : -1)
-                .forEach(e -> {
-                    updateEntity(e, elapsed);
-                    if (!e.isRelativeToParent()) {
-                        constraintsEntity(e);
-                    }
-                });
+                    .filter(e -> !(e instanceof Camera) && e.isActive())
+                    .sorted((e1, e2) -> e1.priority < e2.priority ? 1 : -1)
+                    .forEach(e -> {
+                        updateEntity(e, elapsed);
+                        if (!e.isRelativeToParent()) {
+                            constraintsEntity(e);
+                        }
+                    });
         }
 
         private void constraintsEntity(Entity e) {
@@ -969,6 +988,7 @@ public class Main extends JPanel {
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
     private int debug;
+
     public Main(String[] args, String pathToConfigPropsFile) {
         config = new Configuration(pathToConfigPropsFile, args);
         initialize();
@@ -1130,13 +1150,13 @@ public class Main extends JPanel {
                     public void update(long elapsed, Entity e) {
                         double life = (Double) e.getAttribute("life", Double.valueOf(-Math.PI));
                         life += 0.01;
-                        if (life > Math.PI ) {
-                            life = -Math.PI ;
+                        if (life > Math.PI) {
+                            life = -Math.PI;
                         }
                         e.x = (Math.cos(life) * 16.0);
                         e.y = -40.0 + (Math.sin(life) * 16.0)
-                                + (Math.sin(life*2.0) * 8.0)
-                                + (Math.sin(life*4.0) * 4.0);
+                                + (Math.sin(life * 2.0) * 8.0)
+                                + (Math.sin(life * 4.0) * 4.0);
                         e.setAttribute("life", life);
                     }
                 });
