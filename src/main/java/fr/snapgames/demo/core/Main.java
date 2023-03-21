@@ -307,6 +307,8 @@ public class Main extends JPanel {
         String currentAnimation = "";
         Map<String, Object> attributes = new HashMap<>();
         private boolean fixedToCamera;
+        private int priority;
+        private boolean active;
 
         public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
             this.name = name;
@@ -380,6 +382,52 @@ public class Main extends JPanel {
         public boolean isFixedToCamera() {
             return fixedToCamera;
         }
+
+        public boolean isRelativeToParent() {
+            return relativeToParent;
+        }
+
+        public boolean isActive() {
+            return this.active;
+        }
+
+        public Entity setPriority(int p) {
+            this.priority = p;
+            return this;
+        }
+
+    }
+
+    public class TextEntity extends Entity {
+        String text = "";
+        Color textColor = Color.WHITE;
+        Color shadowColor = Color.BLACK;
+        Font font;
+
+        public TextEntity(String name, int x, int y) {
+            super(name, x, y, null, null);
+        }
+
+        public TextEntity setText(String txt) {
+            this.text = txt;
+            return this;
+        }
+
+        public TextEntity setTextColor(Color tc) {
+            this.textColor = tc;
+            return this;
+        }
+
+        public TextEntity setShadowColor(Color sc) {
+            this.shadowColor = sc;
+            return this;
+        }
+
+        public TextEntity setFont(Font f) {
+            this.font = f;
+            return this;
+        }
+
     }
 
     public class Camera extends Entity {
@@ -538,19 +586,23 @@ public class Main extends JPanel {
     public class PhysicEngine {
 
         Main main;
+        World world;
 
         public PhysicEngine(Main main) {
             this.main = main;
         }
 
         private void update(long elapsed) {
-            this.main.entities.values().stream().forEach(e -> {
-                updateEntity(e, elapsed);
-                constraintsEntity(e);
-            });
-            if (Optional.ofNullable(this.main.camera).isPresent()) {
-                this.main.camera.update(elapsed);
-            }
+
+            this.main.entities.values().stream()
+                .filter(e -> !(e instanceof Camera) && e.isActive())
+                .sorted((e1, e2) -> e1.priority < e2.priority ? 1 : -1)
+                .forEach(e -> {
+                    updateEntity(e, elapsed);
+                    if (!e.isRelativeToParent()) {
+                        constraintsEntity(e);
+                    }
+                });
         }
 
         private void constraintsEntity(Entity e) {
@@ -598,12 +650,127 @@ public class Main extends JPanel {
             e.getChild().stream().forEach(c -> updateEntity(c, elapsed));
         }
 
+        public void setWorld(World world) {
+            this.world = world;
+        }
+    }
+
+    public interface DrawPlugin<T extends Entity> {
+        public Class<T> getClassName();
+
+        public default void draw(Renderer r, Graphics2D g, Entity t) {
+        }
+    }
+
+    public class EntityDrawPlugin implements DrawPlugin<Entity> {
+        @Override
+        public Class<Entity> getClassName() {
+            return Entity.class;
+        }
+
+        @Override
+        public void draw(Renderer r, Graphics2D g, Entity e) {
+            double x = e.x;
+            double y = e.y;
+            if (e.relativeToParent) {
+                x = e.parent.x + e.x;
+                y = e.parent.y + e.y;
+            }
+
+            if (Optional.ofNullable(r.camera).isPresent() && !e.isFixedToCamera()) {
+                r.camera.preDraw(g);
+            }
+
+            switch (e.type) {
+                // draw a simple rectangle
+                case RECTANGLE -> {
+                    g.setColor(e.fillColor);
+                    g.fillRect((int) x, (int) y, (int) e.width, (int) e.height);
+                    g.setColor(e.borderColor);
+                    g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
+                }
+                // draw an ellipse
+                case ELLIPSE -> {
+                    g.setColor(e.fillColor);
+                    g.fillOval((int) x, (int) y, (int) e.width, (int) e.height);
+                    g.setColor(e.borderColor);
+                    g.drawOval((int) x, (int) y, (int) e.width, (int) e.height);
+                }
+                // draw the entity corresponding image or current animation image frame
+                case IMAGE -> {
+                    BufferedImage img = e.image;
+                    if (!e.currentAnimation.equals("")) {
+                        img = e.animations.get(e.currentAnimation).getFrame();
+                    }
+                    if (Optional.ofNullable(img).isPresent()) {
+                        if (e.direction >= 0) {
+                            g.drawImage(
+                                    img,
+                                    (int) x, (int) y,
+                                    (int) e.width, (int) e.height,
+                                    null);
+                        } else {
+                            g.drawImage(
+                                    img,
+                                    (int) (x + e.width), (int) y,
+                                    (int) -e.width, (int) e.height,
+                                    null);
+                        }
+                    }
+                }
+                default -> {
+                    System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
+                }
+            }
+            // draw debug info if required
+            if (r.isDebugAtLeast(2)) {
+                r.drawDebugEntityInfo(g, e);
+            }
+            if (Optional.ofNullable(r.camera).isPresent() && !e.isFixedToCamera()) {
+                r.camera.postDraw(g);
+            }
+        }
+    }
+
+    public class TextDrawPlugin implements DrawPlugin<TextEntity> {
+
+        @Override
+        public Class<TextEntity> getClassName() {
+            return TextEntity.class;
+        }
+
+        @Override
+        public void draw(Renderer r, Graphics2D g, Entity e) {
+
+            TextEntity textEntity = (TextEntity) e;
+
+            if (Optional.ofNullable(r.camera).isPresent() && !e.isFixedToCamera()) {
+                r.camera.preDraw(g);
+            }
+
+            g.setFont(textEntity.font);
+            g.setColor(textEntity.shadowColor);
+            g.drawString(
+                    textEntity.text,
+                    (int) textEntity.x + 1, (int) textEntity.y + 1);
+            g.setColor(textEntity.textColor);
+            g.drawString(
+                    textEntity.text,
+                    (int) textEntity.x, (int) textEntity.y);
+
+            if (Optional.ofNullable(r.camera).isPresent() && !e.isFixedToCamera()) {
+                r.camera.postDraw(g);
+            }
+        }
+
     }
 
     public class Renderer {
         private final Main main;
         private JFrame frame;
+        private Camera camera;
         private BufferedImage renderingBuffer;
+        private Map<Class<? extends Entity>, DrawPlugin<? extends Entity>> plugins = new HashMap<>();
 
         public Renderer(Main main) {
             this.main = main;
@@ -611,6 +778,12 @@ public class Main extends JPanel {
                     (String) config.get(ConfigAttribute.TITLE),
                     (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
                     (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION));
+            addPlugin(new EntityDrawPlugin());
+            addPlugin(new TextDrawPlugin());
+        }
+
+        private void addPlugin(DrawPlugin dp) {
+            plugins.put(dp.getClassName(), dp);
         }
 
         private JFrame createFrame(String title, Dimension size, Dimension resolution) {
@@ -687,7 +860,6 @@ public class Main extends JPanel {
                     null);
             drawDebugLine(g2);
             frame.getBufferStrategy().show();
-
         }
 
         private void drawDebugLine(Graphics2D g) {
@@ -711,12 +883,14 @@ public class Main extends JPanel {
                 x = e.parent.x + e.x;
                 y = e.parent.y + e.y;
             }
+
             // draw box
             g.setColor(Color.ORANGE);
             Stroke b = g.getStroke();
             g.setStroke(new BasicStroke(0.2f));
             g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
             g.setStroke(b);
+
             // draw id and name
             g.setColor(Color.YELLOW);
             g.setFont(g.getFont().deriveFont(9.0f));
@@ -728,63 +902,11 @@ public class Main extends JPanel {
         }
 
         private void drawEntity(Graphics2D g, Entity e) {
-            double x = e.x;
-            double y = e.y;
-            if (e.relativeToParent) {
-                x = e.parent.x + e.x;
-                y = e.parent.y + e.y;
+            if (plugins.containsKey(e.getClass())) {
+                DrawPlugin dp = plugins.get(e.getClass());
+                dp.draw(this, g, e);
             }
 
-            if (Optional.ofNullable(this.main.camera).isPresent() && !e.isFixedToCamera()) {
-                this.main.camera.preDraw(g);
-            }
-            switch (e.type) {
-                // draw a simple rectangle
-                case RECTANGLE -> {
-                    g.setColor(e.fillColor);
-                    g.fillRect((int) x, (int) y, (int) e.width, (int) e.height);
-                    g.setColor(e.borderColor);
-                    g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
-                }
-                // draw an ellipse
-                case ELLIPSE -> {
-                    g.setColor(e.fillColor);
-                    g.fillOval((int) x, (int) y, (int) e.width, (int) e.height);
-                    g.setColor(e.borderColor);
-                    g.drawOval((int) x, (int) y, (int) e.width, (int) e.height);
-                }
-                // draw the entity corresponding image or current animation image frame
-                case IMAGE -> {
-                    BufferedImage img = e.image;
-                    if (!e.currentAnimation.equals("")) {
-                        img = e.animations.get(e.currentAnimation).getFrame();
-                    }
-                    if (Optional.ofNullable(img).isPresent()) {
-                        if (e.direction >= 0) {
-                            g.drawImage(img, (int) x, (int) y, (int) e.width, (int) e.height, null);
-                        } else {
-                            g.drawImage(img, (int) (x + e.width), (int) y, (int) -e.width, (int) e.height,
-                                    null);
-                        }
-                    }
-                }
-                default -> {
-                    System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
-                }
-            }
-            // draw debug info if required
-            if (isDebugAtLeast(2)) {
-                drawDebugEntityInfo(g, e);
-            }
-            if (Optional.ofNullable(this.main.camera).isPresent() && !e.isFixedToCamera()) {
-                this.main.camera.postDraw(g);
-            }
-            // display child objects
-            if (!e.getChild().isEmpty()) {
-                e.getChild().stream().forEach(ce -> {
-                    drawEntity(g, ce);
-                });
-            }
         }
 
         public void dispose() {
@@ -816,10 +938,7 @@ public class Main extends JPanel {
     private boolean exit;
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
-    World world;
-
     private int debug;
-
     public Main(String[] args, String pathToConfigPropsFile) {
         config = new Configuration(pathToConfigPropsFile, args);
         initialize();
@@ -850,9 +969,10 @@ public class Main extends JPanel {
     }
 
     private void create() {
-        world = new World(
+        World world = new World(
                 (Double) config.get(ConfigAttribute.PHYSIC_GRAVITY),
                 (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA));
+        physicEngine.setWorld(world);
 
         // add the main player entity.
         Entity player = new Entity("player",
@@ -926,12 +1046,23 @@ public class Main extends JPanel {
                                         "64,0,32,32,150", // frame 3
                                         "96,0,32,32,150"  // frame 4
                                 }))
-                .setParentRelative(true);
+                .setParentRelative(true)
+                .setPriority(2);
         player.addChild(crystal);
         addEntity(player);
         //addEntity(crystal);
 
         Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
+
+        TextEntity score = (TextEntity) new TextEntity("score", vp.width - 80, 20)
+                .setText("00000")
+                .setFont(getFont().deriveFont(16.0f))
+                .setTextColor(Color.WHITE)
+                .setShadowColor(Color.BLACK)
+                .setPriority(10)
+                .setFixedToCamera(true);
+        addEntity(score);
+
         Camera cam = new Camera("myCam")
                 .setTarget(player)
                 .setTween(0.04)
