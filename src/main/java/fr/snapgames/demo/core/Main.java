@@ -1,5 +1,6 @@
 package fr.snapgames.demo.core;
 
+import java.awt.*;
 import java.io.File;
 import java.io.FileReader;
 import java.net.URISyntaxException;
@@ -10,14 +11,11 @@ import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -28,7 +26,6 @@ import java.util.function.Function;
  * @since 1.0.0
  */
 public class Main extends JPanel {
-
 
     public enum ConfigAttribute {
         TITLE("game.title",
@@ -309,6 +306,7 @@ public class Main extends JPanel {
         Map<String, Animation> animations = new HashMap<>();
         String currentAnimation = "";
         Map<String, Object> attributes = new HashMap<>();
+        private boolean fixedToCamera;
 
         public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
             this.name = name;
@@ -325,6 +323,11 @@ public class Main extends JPanel {
 
         public Entity setMass(double m) {
             this.mass = m;
+            return this;
+        }
+
+        public Entity setFixedToCamera(boolean f) {
+            this.fixedToCamera = f;
             return this;
         }
 
@@ -373,11 +376,17 @@ public class Main extends JPanel {
         public Object getAttribute(String key, double defaultValue) {
             return attributes.getOrDefault(key, defaultValue);
         }
+
+        public boolean isFixedToCamera() {
+            return fixedToCamera;
+        }
     }
 
     public class Camera extends Entity {
         Entity target;
         double tween;
+
+        double rotation = 0.0;
         Dimension viewport;
 
         public Camera(String name) {
@@ -399,14 +408,32 @@ public class Main extends JPanel {
             return this;
         }
 
+        public Camera setRotation(double r) {
+            this.rotation = r;
+            return this;
+        }
+
+        public void preDraw(Graphics2D g) {
+            g.translate(-x, -y);
+            g.rotate(-rotation);
+        }
+
+        public void postDraw(Graphics2D g) {
+
+            g.rotate(rotation);
+            g.translate(x, y);
+        }
+
         public void update(long elapsed) {
             this.x += Math
                     .ceil((target.x + (target.width * 0.5) - ((viewport.getWidth()) * 0.5) - this.x)
-                            * tween * Math.min(elapsed, 10));
+                            * tween * Math.min(elapsed, 0.8));
             this.y += Math
                     .ceil((target.y + (target.height * 0.5) - ((viewport.getHeight()) * 0.5) - this.y)
-                            * tween * Math.min(elapsed, 10));
+                            * tween * Math.min(elapsed, 0.8));
         }
+
+
     }
 
     public class Animation {
@@ -521,6 +548,9 @@ public class Main extends JPanel {
                 updateEntity(e, elapsed);
                 constraintsEntity(e);
             });
+            if (Optional.ofNullable(this.main.camera).isPresent()) {
+                this.main.camera.update(elapsed);
+            }
         }
 
         private void constraintsEntity(Entity e) {
@@ -587,7 +617,8 @@ public class Main extends JPanel {
 
             JFrame frame = new JFrame(title);
 
-            setPreferredSize(size);
+            //setPreferredSize(size);
+            this.main.setPreferredSize(size);
             frame.setContentPane(this.main);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
@@ -619,12 +650,15 @@ public class Main extends JPanel {
             g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
 
             if (this.isDebugAtLeast(1)) {
-                // draw play area Limit
-                g.setColor(Color.BLUE);
-                g.drawRect(0, 0, playArea.width, playArea.height);
                 // draw 'camera' limit axis
                 g.setColor(Color.CYAN);
                 g.drawRect(10, 10, renderingBuffer.getWidth() - 20, renderingBuffer.getHeight() - 20);
+                if (Optional.ofNullable(this.main.camera).isPresent()) {
+                    this.main.camera.preDraw(g);
+                }
+                // draw play area Limit
+                g.setColor(Color.BLUE);
+                g.drawRect(0, 0, playArea.width, playArea.height);
                 // draw a background grid
                 g.setColor(Color.DARK_GRAY);
                 for (int ix = 0; ix < playArea.width; ix += 16) {
@@ -632,6 +666,9 @@ public class Main extends JPanel {
                 }
                 for (int iy = 0; iy < playArea.height; iy += 16) {
                     g.drawRect(0, iy, playArea.width, 16);
+                }
+                if (Optional.ofNullable(this.main.camera).isPresent()) {
+                    this.main.camera.postDraw(g);
                 }
             }
             // draw something
@@ -642,13 +679,29 @@ public class Main extends JPanel {
             g.dispose();
 
             // draw buffer to window.
-            frame.getBufferStrategy().getDrawGraphics().drawImage(
+            Graphics2D g2 = (Graphics2D) frame.getBufferStrategy().getDrawGraphics();
+            g2.drawImage(
                     renderingBuffer,
                     0, 0, frame.getWidth(), frame.getHeight(),
                     0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight(),
                     null);
+            drawDebugLine(g2);
             frame.getBufferStrategy().show();
 
+        }
+
+        private void drawDebugLine(Graphics2D g) {
+            Dimension windowSize = (Dimension) this.main.config.get(ConfigAttribute.WINDOW_SIZE);
+            g.setColor(new Color(0.6f,0.3f,0.0f,0.8f));
+            g.fillRect(0,frame.getHeight()-20,frame.getWidth(),20);
+            g.setFont(g.getFont().deriveFont(12.0f));
+            g.setColor(Color.WHITE);
+            g.drawString(String.format("[ dbg:%d | nb:%d | pause: %s | cam:%s ]",
+                            main.getDebugLevel(),
+                            main.entities.size(),
+                            main.pause ? "on" : "off",
+                            main.camera != null ? this.main.camera.name : "none"),
+                    12, frame.getHeight()-4);
         }
 
         private void drawDebugEntityInfo(Graphics2D g, Entity e) {
@@ -658,9 +711,15 @@ public class Main extends JPanel {
                 x = e.parent.x + e.x;
                 y = e.parent.y + e.y;
             }
+            // draw box
+            g.setColor(Color.ORANGE);
+            Stroke b = g.getStroke();
+            g.setStroke(new BasicStroke(0.2f));
+            g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
+            g.setStroke(b);
+            // draw id and name
             g.setColor(Color.YELLOW);
             g.setFont(g.getFont().deriveFont(9.0f));
-            g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
             g.drawString(String.format("#%d:%s", e.id, e.name), (int) x, (int) y - 2);
         }
 
@@ -674,6 +733,10 @@ public class Main extends JPanel {
             if (e.relativeToParent) {
                 x = e.parent.x + e.x;
                 y = e.parent.y + e.y;
+            }
+
+            if (Optional.ofNullable(this.main.camera).isPresent() && !e.isFixedToCamera()) {
+                this.main.camera.preDraw(g);
             }
             switch (e.type) {
                 // draw a simple rectangle
@@ -712,6 +775,9 @@ public class Main extends JPanel {
             // draw debug info if required
             if (isDebugAtLeast(2)) {
                 drawDebugEntityInfo(g, e);
+            }
+            if (Optional.ofNullable(this.main.camera).isPresent() && !e.isFixedToCamera()) {
+                this.main.camera.postDraw(g);
             }
             // display child objects
             if (!e.getChild().isEmpty()) {
@@ -773,7 +839,6 @@ public class Main extends JPanel {
 
         this.debug = (int) config.get(ConfigAttribute.DEBUG);
     }
-
 
     public void run() {
         System.out.printf("Main program started%n");
@@ -849,26 +914,28 @@ public class Main extends JPanel {
                                         "128,160,32,32,60",
                                         "160,160,32,32,60"
                                 }));
-        player.addChild(
-                new Entity("crystal_1", -2, -24, Color.RED, Color.YELLOW)
-                        .setSize(16, 16)
-                        .addAnimation("spinning_crystal",
-                                loadAnimation(
-                                        "/images/spinning-crystal.png",
-                                        true,
-                                        new String[]{
-                                                "0,0,32,32,150",  // frame 1
-                                                "32,0,32,32,150", // frame 2
-                                                "64,0,32,32,150", // frame 3
-                                                "96,0,32,32,150"  // frame 4
-                                        }))
-                        .setParentRelative(true));
+        Entity crystal = new Entity("crystal_1", 0, -28, Color.RED, Color.YELLOW)
+                .setSize(16, 16)
+                .addAnimation("spinning_crystal",
+                        loadAnimation(
+                                "/images/spinning-crystal.png",
+                                true,
+                                new String[]{
+                                        "0,0,32,32,150",  // frame 1
+                                        "32,0,32,32,150", // frame 2
+                                        "64,0,32,32,150", // frame 3
+                                        "96,0,32,32,150"  // frame 4
+                                }))
+                .setParentRelative(true);
+        player.addChild(crystal);
         addEntity(player);
+        //addEntity(crystal);
 
+        Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
         Camera cam = new Camera("myCam")
                 .setTarget(player)
-                .setTween(0.02)
-                .setViewport(new Dimension(320, 200));
+                .setTween(0.04)
+                .setViewport(vp);
         addCamera(cam);
 
     }
@@ -981,10 +1048,8 @@ public class Main extends JPanel {
 
     }
 
-
     private void dispose() {
         renderer.dispose();
     }
-
 
 }
