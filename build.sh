@@ -24,6 +24,7 @@ mkdir -p $CLASSES
 echo "Build of program '$PROGRAM_NAME' ..."
 echo "-----------"
 echo "|_ 1. Create Manifest file '$TARGET/manifest.mf'"
+
 echo "Manifest-Version: ${PROGRAM_NAME}">$TARGET/manifest.mf
 echo "Main-Class: ${MAIN_CLASS}">>$TARGET/manifest.mf
 echo "Created-By: ${JAVA_BUILD}" >>$TARGET/manifest.mf

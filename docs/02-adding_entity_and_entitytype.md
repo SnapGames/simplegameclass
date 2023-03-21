@@ -27,3 +27,10 @@ Entity --> EntityType:type
 @enduml
 ```
 
+## the EntityType enumeration
+
+TODO
+
+## the Entity class
+
+TODO
