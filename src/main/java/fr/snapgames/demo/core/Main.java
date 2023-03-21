@@ -1,5 +1,6 @@
 package fr.snapgames.demo.core;
 
+import java.awt.*;
 import java.io.File;
 import java.io.FileReader;
 import java.net.URISyntaxException;
@@ -10,14 +11,11 @@ import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -28,7 +26,6 @@ import java.util.function.Function;
  * @since 1.0.0
  */
 public class Main extends JPanel {
-
 
     public enum ConfigAttribute {
         TITLE("game.title",
@@ -308,6 +305,8 @@ public class Main extends JPanel {
 
         Map<String, Animation> animations = new HashMap<>();
         String currentAnimation = "";
+        Map<String, Object> attributes = new HashMap<>();
+        private boolean fixedToCamera;
 
         public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
             this.name = name;
@@ -324,6 +323,11 @@ public class Main extends JPanel {
 
         public Entity setMass(double m) {
             this.mass = m;
+            return this;
+        }
+
+        public Entity setFixedToCamera(boolean f) {
+            this.fixedToCamera = f;
             return this;
         }
 
@@ -367,6 +371,66 @@ public class Main extends JPanel {
         public Entity setParentRelative(boolean pr) {
             this.relativeToParent = pr;
             return this;
+        }
+
+        public Object getAttribute(String key, double defaultValue) {
+            return attributes.getOrDefault(key, defaultValue);
+        }
+
+        public boolean isFixedToCamera() {
+            return fixedToCamera;
+        }
+    }
+
+    public class Camera extends Entity {
+        Entity target;
+        double tween;
+
+        double rotation = 0.0;
+        Dimension viewport;
+
+        public Camera(String name) {
+            super(name, 0, 0, null, null);
+        }
+
+        public Camera setTarget(Entity t) {
+            this.target = t;
+            return this;
+        }
+
+        public Camera setTween(double tw) {
+            this.tween = tw;
+            return this;
+        }
+
+        public Camera setViewport(Dimension vp) {
+            this.viewport = vp;
+            return this;
+        }
+
+        public Camera setRotation(double r) {
+            this.rotation = r;
+            return this;
+        }
+
+        public void preDraw(Graphics2D g) {
+            g.translate(-x, -y);
+            g.rotate(-rotation);
+        }
+
+        public void postDraw(Graphics2D g) {
+
+            g.rotate(rotation);
+            g.translate(x, y);
+        }
+
+        public void update(long elapsed) {
+            this.x += Math
+                    .ceil((target.x + (target.width * 0.5) - ((viewport.getWidth()) * 0.5) - this.x)
+                            * tween * Math.min(elapsed, 0.8));
+            this.y += Math
+                    .ceil((target.y + (target.height * 0.5) - ((viewport.getHeight()) * 0.5) - this.y)
+                            * tween * Math.min(elapsed, 0.8));
         }
     }
 
@@ -450,11 +514,280 @@ public class Main extends JPanel {
                     || e.getKeyCode() == KeyEvent.VK_P) {
                 main.setPause(!main.isPause());
             }
+            if (e.getKeyCode() == KeyEvent.VK_D) {
+                main.setDebugLevel(main.getDebugLevel() + 1 < 5 ? main.getDebugLevel() + 1 : 0);
+            }
 
         }
 
         private boolean getKey(int k) {
             return keys[k];
+        }
+    }
+
+    private int getDebugLevel() {
+        return debug;
+    }
+
+    private void setDebugLevel(int d) {
+        this.debug = d;
+    }
+
+    public class PhysicEngine {
+
+        Main main;
+
+        public PhysicEngine(Main main) {
+            this.main = main;
+        }
+
+        private void update(long elapsed) {
+            this.main.entities.values().stream().forEach(e -> {
+                updateEntity(e, elapsed);
+                constraintsEntity(e);
+            });
+            if (Optional.ofNullable(this.main.camera).isPresent()) {
+                this.main.camera.update(elapsed);
+            }
+        }
+
+        private void constraintsEntity(Entity e) {
+            Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
+            e.contact = 0;
+            if (e.x <= 0) {
+                e.x = 0;
+                e.dx = -(e.material.elasticity * e.dx);
+                e.contact += 1;
+            }
+            if (e.y <= 0) {
+                e.y = 0;
+                e.dy = -(e.material.elasticity * e.dy);
+                e.contact += 2;
+            }
+            if (e.x + e.width > playArea.width) {
+                e.x = playArea.width - e.width;
+                e.dx = -(e.material.elasticity * e.dx);
+                e.contact += 4;
+            }
+            if (e.y + e.height > playArea.height) {
+                e.y = playArea.height - e.height;
+                e.dy = -(e.material.elasticity * e.dy);
+                e.contact += 8;
+            }
+
+        }
+
+        private void updateEntity(Entity e, long elapsed) {
+            double TIME_FACTOR = 0.045;
+            double time = elapsed * TIME_FACTOR;
+            if (!e.relativeToParent) {
+                e.dy += world.gravity * 10.0 / e.mass;
+                if (e.contact > 0) {
+                    e.dx *= e.material.friction;
+                    e.dy *= e.material.friction;
+                }
+                e.x += e.dx * time;
+                e.y += e.dy * time;
+            }
+            // update animation with next frame (if required)
+            if (!e.currentAnimation.isEmpty()) {
+                e.animations.get(e.currentAnimation).update(elapsed);
+            }
+            e.getChild().stream().forEach(c -> updateEntity(c, elapsed));
+        }
+
+    }
+
+    public class Renderer {
+        private final Main main;
+        private JFrame frame;
+        private BufferedImage renderingBuffer;
+
+        public Renderer(Main main) {
+            this.main = main;
+            this.frame = createFrame(
+                    (String) config.get(ConfigAttribute.TITLE),
+                    (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
+                    (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION));
+        }
+
+        private JFrame createFrame(String title, Dimension size, Dimension resolution) {
+
+            JFrame frame = new JFrame(title);
+
+            //setPreferredSize(size);
+            this.main.setPreferredSize(size);
+            frame.setContentPane(this.main);
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
+
+            frame.pack();
+            frame.setVisible(true);
+            frame.createBufferStrategy(2);
+
+            renderingBuffer = new BufferedImage(
+                    resolution.width,
+                    resolution.height,
+                    BufferedImage.TYPE_INT_ARGB);
+
+            return frame;
+        }
+
+        public void setUserInput(UserInput ui) {
+            frame.addKeyListener(ui);
+        }
+
+        private void draw() {
+            Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
+            Graphics2D g = (Graphics2D) renderingBuffer.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            // clear rendering buffer
+            g.setColor(Color.BLACK);
+            g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
+
+            if (this.isDebugAtLeast(1)) {
+                // draw 'camera' limit axis
+                g.setColor(Color.CYAN);
+                g.drawRect(10, 10, renderingBuffer.getWidth() - 20, renderingBuffer.getHeight() - 20);
+                if (Optional.ofNullable(this.main.camera).isPresent()) {
+                    this.main.camera.preDraw(g);
+                }
+                // draw play area Limit
+                g.setColor(Color.BLUE);
+                g.drawRect(0, 0, playArea.width, playArea.height);
+                // draw a background grid
+                g.setColor(Color.DARK_GRAY);
+                for (int ix = 0; ix < playArea.width; ix += 16) {
+                    g.drawRect(ix, 0, 16, playArea.height);
+                }
+                for (int iy = 0; iy < playArea.height; iy += 16) {
+                    g.drawRect(0, iy, playArea.width, 16);
+                }
+                if (Optional.ofNullable(this.main.camera).isPresent()) {
+                    this.main.camera.postDraw(g);
+                }
+            }
+            // draw something
+            this.main.entities.values().forEach(e -> {
+                drawEntity(g, e);
+            });
+
+            g.dispose();
+
+            // draw buffer to window.
+            Graphics2D g2 = (Graphics2D) frame.getBufferStrategy().getDrawGraphics();
+            g2.drawImage(
+                    renderingBuffer,
+                    0, 0, frame.getWidth(), frame.getHeight(),
+                    0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight(),
+                    null);
+            drawDebugLine(g2);
+            frame.getBufferStrategy().show();
+
+        }
+
+        private void drawDebugLine(Graphics2D g) {
+            Dimension windowSize = (Dimension) this.main.config.get(ConfigAttribute.WINDOW_SIZE);
+            g.setColor(new Color(0.6f, 0.3f, 0.0f, 0.8f));
+            g.fillRect(0, frame.getHeight() - 20, frame.getWidth(), 20);
+            g.setFont(g.getFont().deriveFont(12.0f));
+            g.setColor(Color.WHITE);
+            g.drawString(String.format("[ dbg:%d | nb:%d | pause: %s | cam:%s ]",
+                            main.getDebugLevel(),
+                            main.entities.size(),
+                            main.pause ? "on" : "off",
+                            main.camera != null ? this.main.camera.name : "none"),
+                    12, frame.getHeight() - 4);
+        }
+
+        private void drawDebugEntityInfo(Graphics2D g, Entity e) {
+            double x = e.x;
+            double y = e.y;
+            if (e.relativeToParent) {
+                x = e.parent.x + e.x;
+                y = e.parent.y + e.y;
+            }
+            // draw box
+            g.setColor(Color.ORANGE);
+            Stroke b = g.getStroke();
+            g.setStroke(new BasicStroke(0.2f));
+            g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
+            g.setStroke(b);
+            // draw id and name
+            g.setColor(Color.YELLOW);
+            g.setFont(g.getFont().deriveFont(9.0f));
+            g.drawString(String.format("#%d:%s", e.id, e.name), (int) x, (int) y - 2);
+        }
+
+        private boolean isDebugAtLeast(int level) {
+            return debug >= level;
+        }
+
+        private void drawEntity(Graphics2D g, Entity e) {
+            double x = e.x;
+            double y = e.y;
+            if (e.relativeToParent) {
+                x = e.parent.x + e.x;
+                y = e.parent.y + e.y;
+            }
+
+            if (Optional.ofNullable(this.main.camera).isPresent() && !e.isFixedToCamera()) {
+                this.main.camera.preDraw(g);
+            }
+            switch (e.type) {
+                // draw a simple rectangle
+                case RECTANGLE -> {
+                    g.setColor(e.fillColor);
+                    g.fillRect((int) x, (int) y, (int) e.width, (int) e.height);
+                    g.setColor(e.borderColor);
+                    g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
+                }
+                // draw an ellipse
+                case ELLIPSE -> {
+                    g.setColor(e.fillColor);
+                    g.fillOval((int) x, (int) y, (int) e.width, (int) e.height);
+                    g.setColor(e.borderColor);
+                    g.drawOval((int) x, (int) y, (int) e.width, (int) e.height);
+                }
+                // draw the entity corresponding image or current animation image frame
+                case IMAGE -> {
+                    BufferedImage img = e.image;
+                    if (!e.currentAnimation.equals("")) {
+                        img = e.animations.get(e.currentAnimation).getFrame();
+                    }
+                    if (Optional.ofNullable(img).isPresent()) {
+                        if (e.direction >= 0) {
+                            g.drawImage(img, (int) x, (int) y, (int) e.width, (int) e.height, null);
+                        } else {
+                            g.drawImage(img, (int) (x + e.width), (int) y, (int) -e.width, (int) e.height,
+                                    null);
+                        }
+                    }
+                }
+                default -> {
+                    System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
+                }
+            }
+            // draw debug info if required
+            if (isDebugAtLeast(2)) {
+                drawDebugEntityInfo(g, e);
+            }
+            if (Optional.ofNullable(this.main.camera).isPresent() && !e.isFixedToCamera()) {
+                this.main.camera.postDraw(g);
+            }
+            // display child objects
+            if (!e.getChild().isEmpty()) {
+                e.getChild().stream().forEach(ce -> {
+                    drawEntity(g, ce);
+                });
+            }
+        }
+
+        public void dispose() {
+            frame.dispose();
+            renderingBuffer = null;
         }
     }
 
@@ -475,6 +808,11 @@ public class Main extends JPanel {
     private UserInput userInput;
     private JFrame frame;
     private BufferedImage renderingBuffer;
+    private PhysicEngine physicEngine;
+    private Renderer renderer;
+
+
+    private Camera camera;
     private boolean exit;
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
@@ -494,35 +832,13 @@ public class Main extends JPanel {
 
     public void initialize() {
         resources = new Resources();
+
+        physicEngine = new PhysicEngine(this);
+        renderer = new Renderer(this);
         userInput = new UserInput(this);
-        this.frame = createFrame(
-                (String) config.get(ConfigAttribute.TITLE),
-                (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
-                (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION));
+        renderer.setUserInput(userInput);
+
         this.debug = (int) config.get(ConfigAttribute.DEBUG);
-    }
-
-    private JFrame createFrame(String title, Dimension size, Dimension resolution) {
-
-        JFrame frame = new JFrame(title);
-
-        setPreferredSize(size);
-        frame.setContentPane(this);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
-
-        frame.pack();
-        frame.setVisible(true);
-        frame.createBufferStrategy(2);
-
-        renderingBuffer = new BufferedImage(
-                resolution.width,
-                resolution.height,
-                BufferedImage.TYPE_INT_ARGB);
-
-        frame.addKeyListener(userInput);
-
-        return frame;
     }
 
     public void run() {
@@ -546,6 +862,7 @@ public class Main extends JPanel {
                 Color.RED,
                 Color.BLACK)
                 .setSize(32.0, 32.0)
+                .setMass(20.0)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
                 .addAnimation("idle",
                         loadAnimation(
@@ -598,23 +915,35 @@ public class Main extends JPanel {
                                         "128,160,32,32,60",
                                         "160,160,32,32,60"
                                 }));
-        player.addChild(
-                new Entity("crystal_1", -2, -24, Color.RED, Color.YELLOW)
-                        .setSize(16, 16)
-                        .addAnimation("spinning_crystal",
-                                loadAnimation(
-                                        "/images/spinning-crystal.png",
-                                        true,
-                                        new String[]{
-                                                "0,0,32,32,500",  // frame 1
-                                                "32,0,32,32,500", // frame 2
-                                                "64,0,32,32,500", // frame 3
-                                                "96,0,32,32,500"  // frame 4
-                                        }))
-                        .setParentRelative(true));
+
+        Entity crystal = new Entity("crystal_1", 0, -28, Color.RED, Color.YELLOW)
+                .setSize(16, 16)
+                .addAnimation("spinning_crystal",
+                        loadAnimation(
+                                "/images/spinning-crystal.png",
+                                true,
+                                new String[]{
+                                        "0,0,32,32,150",  // frame 1
+                                        "32,0,32,32,150", // frame 2
+                                        "64,0,32,32,150", // frame 3
+                                        "96,0,32,32,150"  // frame 4
+                                }))
+                .setParentRelative(true);
+        player.addChild(crystal);
         addEntity(player);
+        //addEntity(crystal);
 
+        Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
+        Camera cam = new Camera("myCam")
+                .setTarget(player)
+                .setTween(0.04)
+                .setViewport(vp);
+        addCamera(cam);
 
+    }
+
+    private void addCamera(Camera cam) {
+        this.camera = cam;
     }
 
     private Animation loadAnimation(String imageSrcPath, boolean loop, String[] framesDef) {
@@ -651,9 +980,9 @@ public class Main extends JPanel {
             elapsed = startTime - endTime;
             input();
             if (!pause) {
-                update(elapsed);
+                physicEngine.update(elapsed);
             }
-            draw();
+            renderer.draw();
             waitForMs((int) (timeFrame - elapsed));
             endTime = startTime;
         }
@@ -680,8 +1009,8 @@ public class Main extends JPanel {
         } else {
             player.currentAnimation = "idle";
         }
-        double step = 0.2;
-        double jump = -8 * step;
+        double step = (double) player.getAttribute("step", 0.2);
+        double jump = (double) player.getAttribute("jump", -4.0 * 0.2);
         if (userInput.getKey(KeyEvent.VK_UP)) {
             player.dy += jump;
             player.currentAnimation = "jump";
@@ -720,173 +1049,8 @@ public class Main extends JPanel {
 
     }
 
-    private void update(long elapsed) {
-        entities.values().stream().forEach(e -> {
-            updateEntity(e, elapsed);
-            constraintsEntity(e);
-        });
-    }
-
-    private void constraintsEntity(Entity e) {
-        Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
-        e.contact = 0;
-        if (e.x <= 0) {
-            e.x = 0;
-            e.dx = -(e.material.elasticity * e.dx);
-            e.contact += 1;
-        }
-        if (e.y <= 0) {
-            e.y = 0;
-            e.dy = -(e.material.elasticity * e.dy);
-            e.contact += 2;
-        }
-        if (e.x + e.width > playArea.width) {
-            e.x = playArea.width - e.width;
-            e.dx = -(e.material.elasticity * e.dx);
-            e.contact += 4;
-        }
-        if (e.y + e.height > playArea.height) {
-            e.y = playArea.height - e.height;
-            e.dy = -(e.material.elasticity * e.dy);
-            e.contact += 8;
-        }
-
-    }
-
-    private void updateEntity(Entity e, long elapsed) {
-        double TIME_FACTOR = 0.045;
-        double time = elapsed * TIME_FACTOR;
-        e.dy += world.gravity / e.mass;
-        if (e.contact > 0) {
-            e.dx *= e.material.friction;
-            e.dy *= e.material.friction;
-        }
-        e.x += e.dx * time;
-        e.y += e.dy * time;
-        // update animation with next frame (if required)
-        if (!e.currentAnimation.isEmpty()) {
-            e.animations.get(e.currentAnimation).update(elapsed);
-        }
-        e.getChild().stream().forEach(c -> updateEntity(c, elapsed));
-    }
-
-    private void draw() {
-        Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
-        Graphics2D g = (Graphics2D) renderingBuffer.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
-        // clear rendering buffer
-        g.setColor(Color.BLACK);
-        g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
-
-        if (this.isDebugAtLeast(1)) {
-            // draw play area Limit
-            g.setColor(Color.BLUE);
-            g.drawRect(0, 0, playArea.width, playArea.height);
-            // draw 'camera' limit axis
-            g.setColor(Color.CYAN);
-            g.drawRect(10, 10, renderingBuffer.getWidth() - 20, renderingBuffer.getHeight() - 20);
-            // draw a background grid
-            g.setColor(Color.DARK_GRAY);
-            for (int ix = 0; ix < playArea.width; ix += 16) {
-                g.drawRect(ix, 0, 16, playArea.height);
-            }
-            for (int iy = 0; iy < playArea.height; iy += 16) {
-                g.drawRect(0, iy, playArea.width, 16);
-            }
-        }
-        // draw something
-        entities.values().forEach(e -> {
-            drawEntity(g, e);
-        });
-
-        g.dispose();
-
-        // draw buffer to window.
-        frame.getBufferStrategy().getDrawGraphics().drawImage(
-                renderingBuffer,
-                0, 0, frame.getWidth(), frame.getHeight(),
-                0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight(),
-                null);
-        frame.getBufferStrategy().show();
-
-    }
-
-    private void drawDebugEntityInfo(Graphics2D g, Entity e) {
-        double x = e.x;
-        double y = e.y;
-        if (e.relativeToParent) {
-            x = e.parent.x + e.x;
-            y = e.parent.y + e.y;
-        }
-        g.setColor(Color.YELLOW);
-        g.setFont(g.getFont().deriveFont(9.0f));
-        g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
-        g.drawString(String.format("#%d:%s", e.id, e.name), (int) x, (int) y - 2);
-    }
-
-    private boolean isDebugAtLeast(int level) {
-        return debug >= level;
-    }
-
-    private void drawEntity(Graphics2D g, Entity e) {
-        double x = e.x;
-        double y = e.y;
-        if (e.relativeToParent) {
-            x = e.parent.x + e.x;
-            y = e.parent.y + e.y;
-        }
-        switch (e.type) {
-            // draw a simple rectangle
-            case RECTANGLE -> {
-                g.setColor(e.fillColor);
-                g.fillRect((int) x, (int) y, (int) e.width, (int) e.height);
-                g.setColor(e.borderColor);
-                g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
-            }
-            // draw an ellipse
-            case ELLIPSE -> {
-                g.setColor(e.fillColor);
-                g.fillOval((int) x, (int) y, (int) e.width, (int) e.height);
-                g.setColor(e.borderColor);
-                g.drawOval((int) x, (int) y, (int) e.width, (int) e.height);
-            }
-            // draw the entity corresponding image or current animation image frame
-            case IMAGE -> {
-                BufferedImage img = e.image;
-                if (!e.currentAnimation.equals("")) {
-                    img = e.animations.get(e.currentAnimation).getFrame();
-                }
-                if (Optional.ofNullable(img).isPresent()) {
-                    if (e.direction >= 0) {
-                        g.drawImage(img, (int) x, (int) y, (int) e.width, (int) e.height, null);
-                    } else {
-                        g.drawImage(img, (int) (x + e.width), (int) y, (int) -e.width, (int) e.height,
-                                null);
-                    }
-                }
-            }
-            default -> {
-                System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
-            }
-        }
-        // draw debug info if required
-        if (isDebugAtLeast(2)) {
-            drawDebugEntityInfo(g, e);
-        }
-        // display child objects
-        if (!e.getChild().isEmpty()) {
-            e.getChild().stream().forEach(ce -> {
-                drawEntity(g, ce);
-            });
-        }
-    }
-
     private void dispose() {
-        frame.dispose();
-        renderingBuffer = null;
+        renderer.dispose();
     }
-
 
 }

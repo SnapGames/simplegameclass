@@ -50,6 +50,6 @@ java -jar target/simpleclass.jar game.title=ThisIsMyWindow
 
 A new window running the demonstration game will appear with "ThisIsMyWindow" as title.
 
-![A screenshot of the existing demo for SimpleGameClass (SGC)](docs/images/screenshot-sgc-001.png)
+![A screenshot of the existing demo for SimpleGameClass (SGC)](docs/images/screenshot-sgc-002.gif)
 
 McG.
