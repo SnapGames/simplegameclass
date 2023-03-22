@@ -25,7 +25,7 @@ import java.util.function.Function;
  * @author Frédéric Delorme
  * @since 1.0.0
  */
-public class Main extends JPanel {
+public class Game extends JPanel {
 
     public enum ConfigAttribute {
         TITLE("game.title",
@@ -139,7 +139,7 @@ public class Main extends JPanel {
                 String jarDir = "";
                 String externalConfigFile = "";
                 try {
-                    CodeSource codeSource = Main.class.getProtectionDomain().getCodeSource();
+                    CodeSource codeSource = Game.class.getProtectionDomain().getCodeSource();
                     File jarFile = new File(codeSource.getLocation().toURI().getPath());
                     jarDir = jarFile.getParentFile().getPath();
                     externalConfigFile = jarDir + File.separator + "my-" + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1) : configFile);
@@ -240,7 +240,7 @@ public class Main extends JPanel {
             BufferedImage img = null;
             if (!resources.containsKey(file)) {
                 try {
-                    img = ImageIO.read(Main.class.getResourceAsStream(file));
+                    img = ImageIO.read(Game.class.getResourceAsStream(file));
                 } catch (Exception e) {
                     System.err.printf("Unable to read the image %s", file);
                 }
@@ -390,6 +390,10 @@ public class Main extends JPanel {
             return behaviors;
         }
 
+        protected Entity setRelativeToParent(boolean rtp) {
+            this.relativeToParent = rtp;
+            return this;
+        }
     }
 
     public class TextEntity extends Entity {
@@ -425,6 +429,12 @@ public class Main extends JPanel {
 
     public class Particle extends Entity {
         int nbParticles = 0;
+
+        public Particle(String name) {
+            super(name, 0, 0, null, null);
+            this.nbParticles = -1;
+            super.setRelativeToParent(true);
+        }
 
         public Particle(String name, int x, int y, int nbParticles) {
             super(name, x, y, null, null);
@@ -538,13 +548,29 @@ public class Main extends JPanel {
         }
     }
 
+    public class Animations {
+        Map<String, Animation> animations = new HashMap<>();
+
+        public Animations(String animationFile){
+            loadFromFile(animationFile);
+        }
+
+        public Animations(){
+            this("/animations.properties");
+        }
+
+        private void loadFromFile(String animationFile) {
+            // TODO load files
+        }
+
+    }
     public class UserInput implements KeyListener {
 
-        private final Main main;
+        private final Game game;
         private boolean[] keys = new boolean[65636];
 
-        public UserInput(Main main) {
-            this.main = main;
+        public UserInput(Game game) {
+            this.game = game;
         }
 
         @Override
@@ -562,14 +588,14 @@ public class Main extends JPanel {
             keys[e.getKeyCode()] = false;
 
             if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-                main.setExit(true);
+                game.setExit(true);
             }
             if (e.getKeyCode() == KeyEvent.VK_PAUSE
                     || e.getKeyCode() == KeyEvent.VK_P) {
-                main.setPause(!main.isPause());
+                game.setPause(!game.isPause());
             }
             if (e.getKeyCode() == KeyEvent.VK_D) {
-                main.setDebugLevel(main.getDebugLevel() + 1 < 5 ? main.getDebugLevel() + 1 : 0);
+                game.setDebugLevel(game.getDebugLevel() + 1 < 5 ? game.getDebugLevel() + 1 : 0);
             }
 
         }
@@ -618,17 +644,21 @@ public class Main extends JPanel {
         }
     }
 
+    public interface ParticleBehavior extends Behavior<Particle> {
+        Particle create(Game m, Particle parent);
+    }
+
     public class PhysicEngine {
 
-        Main main;
+        Game game;
         World world;
 
-        public PhysicEngine(Main main) {
-            this.main = main;
+        public PhysicEngine(Game game) {
+            this.game = game;
         }
 
         private void update(long elapsed) {
-            this.main.entities.values().stream()
+            this.game.entities.values().stream()
                     .filter(e -> !(e instanceof Camera) && e.isActive())
                     .sorted((e1, e2) -> e1.priority < e2.priority ? 1 : -1)
                     .forEach(e -> {
@@ -803,14 +833,14 @@ public class Main extends JPanel {
     }
 
     public class Renderer {
-        private final Main main;
+        private final Game game;
         private JFrame frame;
         private Camera camera;
         private BufferedImage renderingBuffer;
         private Map<Class<? extends Entity>, DrawPlugin<? extends Entity>> plugins = new HashMap<>();
 
-        public Renderer(Main main) {
-            this.main = main;
+        public Renderer(Game game) {
+            this.game = game;
             this.frame = createWindow(
                     (String) config.get(ConfigAttribute.TITLE),
                     (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
@@ -828,8 +858,8 @@ public class Main extends JPanel {
             JFrame frame = new JFrame(title);
 
             //setPreferredSize(size);
-            this.main.setPreferredSize(size);
-            frame.setContentPane(this.main);
+            this.game.setPreferredSize(size);
+            frame.setContentPane(this.game);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
 
@@ -859,7 +889,7 @@ public class Main extends JPanel {
                 drawDebugInfoOnScreen(playArea, g);
             }
             // draw something
-            this.main.entities.values().stream()
+            this.game.entities.values().stream()
                     .filter(e -> !(e instanceof Camera) && e.isActive())
                     .sorted((e1, e2) -> e1.priority > e2.priority ? 1 : -1)
                     .forEach(e -> {
@@ -911,15 +941,15 @@ public class Main extends JPanel {
         }
 
         private void drawDebugLine(Graphics2D g) {
-            Dimension windowSize = (Dimension) this.main.config.get(ConfigAttribute.WINDOW_SIZE);
+            Dimension windowSize = (Dimension) this.game.config.get(ConfigAttribute.WINDOW_SIZE);
             g.setColor(new Color(0.6f, 0.3f, 0.0f, 0.8f));
             g.fillRect(0, frame.getHeight() - 20, frame.getWidth(), 20);
             g.setFont(g.getFont().deriveFont(12.0f));
             g.setColor(Color.WHITE);
             g.drawString(String.format("[ dbg:%d | nb:%d | pause: %s | cam:%s ]",
-                            main.getDebugLevel(),
-                            main.entities.size(),
-                            main.pause ? "on" : "off",
+                            game.getDebugLevel(),
+                            game.entities.size(),
+                            game.pause ? "on" : "off",
                             camera != null ? camera.name : "none"),
                     12, frame.getHeight() - 4);
         }
@@ -979,6 +1009,66 @@ public class Main extends JPanel {
         }
     }
 
+    public class PlayerInput implements Behavior<Entity> {
+        @Override
+        public void input(UserInput ui, Entity player) {
+            boolean move = false;
+            if (player.currentAnimation.equals("player_jump")) {
+                player.currentAnimation = "player_idle";
+            } else if (player.currentAnimation.equals("player_jump") && player.contact != 0) {
+                player.currentAnimation = "player_idle";
+            } else {
+                player.currentAnimation = "player_idle";
+            }
+            double step = (double) player.getAttribute("step", 0.2);
+            double jump = (double) player.getAttribute("player_jump", -4.0 * 0.2);
+            if (ui.getKey(KeyEvent.VK_UP)) {
+                player.dy += jump;
+                player.currentAnimation = "player_jump";
+                move = true;
+            }
+            if (ui.getKey(KeyEvent.VK_DOWN)) {
+                player.dy += step;
+                player.currentAnimation = "player_jump";
+                move = true;
+            }
+            if (ui.getKey(KeyEvent.VK_LEFT)) {
+                player.dx += -step;
+                move = true;
+            }
+            if (ui.getKey(KeyEvent.VK_RIGHT)) {
+                player.dx += step;
+                move = true;
+            }
+            if (!move) {
+                player.dx = (player.material.friction * player.dx);
+                player.dy = (player.material.friction * player.dy);
+
+                player.currentAnimation = "player_idle";
+            } else {
+                if (player.dx != 0) {
+                    player.currentAnimation = "player_walk";
+                }
+            }
+            player.direction = player.dx >= 0 ? 1 : -1;
+        }
+    }
+
+    private class CrystalBehavior implements Behavior<Entity> {
+        @Override
+        public void update(long elapsed, Entity e) {
+            double life = (Double) e.getAttribute("life", Double.valueOf(-Math.PI));
+            life += 0.01;
+            if (life > Math.PI) {
+                life = -Math.PI;
+            }
+            e.x = (Math.cos(life) * 16.0);
+            e.y = -40.0 + (Math.sin(life) * 16.0)
+                    + (Math.sin(life * 2.0) * 8.0)
+                    + (Math.sin(life * 4.0) * 4.0);
+            e.setAttribute("life", life);
+        }
+    }
     private Configuration config;
     private Resources resources;
     private UserInput userInput;
@@ -989,13 +1079,13 @@ public class Main extends JPanel {
     private Map<String, Entity> entities = new HashMap<>();
     private int debug;
 
-    public Main(String[] args, String pathToConfigPropsFile) {
+    public Game(String[] args, String pathToConfigPropsFile) {
         config = new Configuration(pathToConfigPropsFile, args);
         initialize();
     }
 
     public static void main(String[] args) {
-        Main app = new Main(args, "/config.properties");
+        Game app = new Game(args, "/config.properties");
         app.run();
     }
 
@@ -1016,7 +1106,7 @@ public class Main extends JPanel {
         System.out.printf("Scene created%n");
         loop();
         dispose();
-        System.out.printf("Main programm ended%n");
+        System.out.printf("Main program ended%n");
     }
 
     private void create() {
@@ -1035,51 +1125,8 @@ public class Main extends JPanel {
                 .setMass(20.0)
                 .setPriority(1)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
-                .add(new Behavior<Entity>() {
-                    @Override
-                    public void input(UserInput ui, Entity player) {
-                        boolean move = false;
-                        if (player.currentAnimation.equals("jump")) {
-                            player.currentAnimation = "idle";
-                        } else if (player.currentAnimation.equals("jump") && player.contact != 0) {
-                            player.currentAnimation = "idle";
-                        } else {
-                            player.currentAnimation = "idle";
-                        }
-                        double step = (double) player.getAttribute("step", 0.2);
-                        double jump = (double) player.getAttribute("jump", -4.0 * 0.2);
-                        if (ui.getKey(KeyEvent.VK_UP)) {
-                            player.dy += jump;
-                            player.currentAnimation = "jump";
-                            move = true;
-                        }
-                        if (ui.getKey(KeyEvent.VK_DOWN)) {
-                            player.dy += step;
-                            player.currentAnimation = "jump";
-                            move = true;
-                        }
-                        if (ui.getKey(KeyEvent.VK_LEFT)) {
-                            player.dx += -step;
-                            move = true;
-                        }
-                        if (ui.getKey(KeyEvent.VK_RIGHT)) {
-                            player.dx += step;
-                            move = true;
-                        }
-                        if (!move) {
-                            player.dx = (player.material.friction * player.dx);
-                            player.dy = (player.material.friction * player.dy);
-
-                            player.currentAnimation = "idle";
-                        } else {
-                            if (player.dx != 0) {
-                                player.currentAnimation = "walk";
-                            }
-                        }
-                        player.direction = player.dx >= 0 ? 1 : -1;
-                    }
-                })
-                .add("idle",
+                .add(new PlayerInput())
+                .add("player_idle",
                         loadAnimation(
                                 "/images/sprites01.png",
                                 true,
@@ -1098,7 +1145,7 @@ public class Main extends JPanel {
                                         "352,0,32,32,60",
                                         "384,0,32,32,60"
                                 }))
-                .add("walk",
+                .add("player_walk",
                         loadAnimation(
                                 "/images/sprites01.png",
                                 true,
@@ -1112,7 +1159,7 @@ public class Main extends JPanel {
                                         "192,32,32,32,60",
                                         "224,32,32,32,60"
                                 }))
-                .add("jump",
+                .add("player_jump",
                         loadAnimation(
                                 "/images/sprites01.png",
                                 true,
@@ -1121,7 +1168,7 @@ public class Main extends JPanel {
                                         "32,160,32,32,60",
                                         "64,160,32,32,60",
                                 }))
-                .add("fall",
+                .add("player_fall",
                         loadAnimation(
                                 "/images/sprites01.png",
                                 true,
@@ -1133,7 +1180,7 @@ public class Main extends JPanel {
 
         Entity crystal = new Entity("crystal_1", 0, -28, Color.RED, Color.YELLOW)
                 .setSize(16, 16)
-                .add("spinning_crystal",
+                .add("crystal_spinning",
                         loadAnimation(
                                 "/images/spinning-crystal.png",
                                 true,
@@ -1145,21 +1192,7 @@ public class Main extends JPanel {
                                 }))
                 .setParentRelative(true)
                 .setPriority(2)
-                .add(new Behavior<Entity>() {
-                    @Override
-                    public void update(long elapsed, Entity e) {
-                        double life = (Double) e.getAttribute("life", Double.valueOf(-Math.PI));
-                        life += 0.01;
-                        if (life > Math.PI) {
-                            life = -Math.PI;
-                        }
-                        e.x = (Math.cos(life) * 16.0);
-                        e.y = -40.0 + (Math.sin(life) * 16.0)
-                                + (Math.sin(life * 2.0) * 8.0)
-                                + (Math.sin(life * 4.0) * 4.0);
-                        e.setAttribute("life", life);
-                    }
-                });
+                .add(new CrystalBehavior());
         player.addChild(crystal);
         add(player);
         add(crystal);
@@ -1199,7 +1232,7 @@ public class Main extends JPanel {
             i++;
         }
 
-        return new Main.Animation(imgs, frameTimes).setLoop(loop);
+        return new Game.Animation(imgs, frameTimes).setLoop(loop);
     }
 
     private void loop() {

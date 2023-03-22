@@ -46,7 +46,7 @@ This is the available time for the CPU to prepare next image!
 
 So capturing input, moving things and displaying things must be done in 16ms. And loop again for the next frame.
 
-So the main process is a LOOP. that's why we talk about a Main Loop:
+So the game process is a LOOP. that's why we talk about a Main Loop:
 
 ![The basic Main loop explained with a pencil: the method to keep a fixed frame rate !](illustrations/figure-game-loop.jpg "the basic Main loop explained with a pencil: the method to keep a fixed frame rate ! (c) myself with my own hands !")
 
@@ -103,7 +103,7 @@ public class Main {
         // will created free resources
     }
 
-    public static void main(String[] args) {
+    public static void game(String[] args) {
         Main game = new Main(args);
         game.run();
     }
