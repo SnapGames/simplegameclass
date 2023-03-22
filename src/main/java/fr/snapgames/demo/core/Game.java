@@ -1,8 +1,7 @@
 package fr.snapgames.demo.core;
 
 import java.awt.*;
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
 import java.net.URISyntaxException;
 import java.security.CodeSource;
 import java.util.*;
@@ -14,7 +13,6 @@ import javax.swing.JPanel;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -118,6 +116,7 @@ public class Game extends JPanel {
             });
             parseConfigFile(file);
             parseArgs(args);
+            save("backup.properties");
         }
 
         public int parseConfigFile(String configFile) {
@@ -139,10 +138,7 @@ public class Game extends JPanel {
                 String jarDir = "";
                 String externalConfigFile = "";
                 try {
-                    CodeSource codeSource = Game.class.getProtectionDomain().getCodeSource();
-                    File jarFile = new File(codeSource.getLocation().toURI().getPath());
-                    jarDir = jarFile.getParentFile().getPath();
-                    externalConfigFile = jarDir + File.separator + "my-" + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1) : configFile);
+                    externalConfigFile = getJarRootPath(configFile);
                     props.load(new FileReader(externalConfigFile));
                     System.out.printf("INFO : file=%s : configuration overloaded with side part configuration file.%n",
                             externalConfigFile);
@@ -180,6 +176,16 @@ public class Game extends JPanel {
                 status = -1;
             }
             return status;
+        }
+
+        private String getJarRootPath(String configFile) throws URISyntaxException {
+            String jarDir;
+            String externalConfigFile;
+            CodeSource codeSource = Game.class.getProtectionDomain().getCodeSource();
+            File jarFile = new File(codeSource.getLocation().toURI().getPath());
+            jarDir = jarFile.getParentFile().getPath();
+            externalConfigFile = jarDir + File.separator + "my-" + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1) : configFile);
+            return externalConfigFile;
         }
 
         public void parseArgs(String[] args) {
@@ -226,6 +232,31 @@ public class Game extends JPanel {
 
         public Object get(ConfigAttribute ca) {
             return configurationValues.get(ca);
+        }
+
+        public void save(String filePath) {
+            Properties props = new Properties();
+            for (Map.Entry<ConfigAttribute, Object> e : configurationValues.entrySet()) {
+                props.setProperty(e.getKey().configAttribute, write(e.getValue()));
+            }
+            try {
+                props.store(new FileOutputStream(getJarRootPath(filePath)), "backup current values");
+            } catch (IOException | URISyntaxException e) {
+                System.err.printf("ERROR: Unable to write current configuration values to %s%n", filePath);
+            }
+        }
+
+        private String write(Object value) {
+            String output = "";
+            switch (value.getClass().getName()) {
+                case "java.awt.Dimension" -> {
+                    output = ((Dimension) value).width + "x" + ((Dimension) value).width;
+                }
+                default -> {
+                    output = value.toString();
+                }
+            }
+            return output;
         }
     }
 
@@ -551,19 +582,80 @@ public class Game extends JPanel {
     public class Animations {
         Map<String, Animation> animations = new HashMap<>();
 
-        public Animations(String animationFile){
+        public Animations(String animationFile) {
             loadFromFile(animationFile);
         }
 
-        public Animations(){
+        public Animations() {
             this("/animations.properties");
         }
 
+        /**
+         * Load animation's frames from animations.properties file to create {@link Animation} object.
+         * format of each animation in the properties file
+         * <pre>
+         * animation_code=[path-to-image-file];[loop/noloop];{[x],[y],[w],[h],[time]+}
+         * </pre>
+         * Each line in the file will contain one animation. the 3 part of the description of an animation if composed of multiple
+         * <code>[x],[y],[w],[h],[time]+</code> section, each defining one frame.
+         * <ul>
+         *     <li><code>path-to-image-file</code> path to the image file to extract frames from</li>
+         *     <li><code>loop/noloop</code> loop => the animation will loop.</li>
+         *     <li><code>x</code> horizontal position in the image file of this frame</li>
+         *     <li><code>y</code> vertical position in the image file of this frame</li>
+         *     <li><code>w</code> width of the frame in the image file</li>
+         *     <li><code>h</code> height of the frame in the image file</li>
+         *     <li><code>time</code> time duration for this frame in the animation</li>
+         * </ul>
+         *
+         * @param animationFile
+         */
         private void loadFromFile(String animationFile) {
-            // TODO load files
+            Properties anims = new Properties();
+            try {
+                anims.load(this.getClass().getResourceAsStream(animationFile));
+                for (Map.Entry<Object, Object> e : anims.entrySet()) {
+                    String animName = (String) e.getKey();
+                    String animFrames = (String) e.getValue();
+
+                    String[] args = animFrames.split(";");
+                    Animation anim = loadAnimation(
+                            args[0],
+                            args[1].equals("loop"),
+                            args[2].substring("{".length(), args[2].length() - "}".length()).split("\\+"));
+                    animations.put(animName, anim);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
         }
 
+        public Animation loadAnimation(String imageSrcPath, boolean loop, String[] framesDef) {
+            BufferedImage[] imgs = new BufferedImage[framesDef.length];
+            long[] frameTimes = new long[framesDef.length];
+            BufferedImage imageSource = resources.getImage(imageSrcPath);
+            int i = 0;
+            for (String f : framesDef) {
+                String[] val = f.split(",");
+                int x = Integer.valueOf(val[0]);
+                int y = Integer.valueOf(val[1]);
+                int w = Integer.valueOf(val[2]);
+                int h = Integer.valueOf(val[3]);
+                int frameTime = Integer.valueOf(val[4]);
+                imgs[i] = imageSource.getSubimage(x, y, w, h);
+                frameTimes[i] = frameTime;
+                i++;
+            }
+
+            return new Game.Animation(imgs, frameTimes).setLoop(loop);
+        }
+
+        public Animation get(String animKey) {
+            return animations.get(animKey);
+        }
     }
+
     public class UserInput implements KeyListener {
 
         private final Game game;
@@ -1069,11 +1161,13 @@ public class Game extends JPanel {
             e.setAttribute("life", life);
         }
     }
+
     private Configuration config;
     private Resources resources;
     private UserInput userInput;
     private PhysicEngine physicEngine;
     private Renderer renderer;
+    private Animations animations;
     private boolean exit;
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
@@ -1096,6 +1190,8 @@ public class Game extends JPanel {
         renderer = new Renderer(this);
         userInput = new UserInput(this);
         renderer.setUserInput(userInput);
+
+        animations = new Animations();
 
         this.debug = (int) config.get(ConfigAttribute.DEBUG);
     }
@@ -1126,70 +1222,14 @@ public class Game extends JPanel {
                 .setPriority(1)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
                 .add(new PlayerInput())
-                .add("player_idle",
-                        loadAnimation(
-                                "/images/sprites01.png",
-                                true,
-                                new String[]{
-                                        "0,0,32,32,500",
-                                        "32,0,32,32,60",
-                                        "64,0,32,32,60",
-                                        "96,0,32,32,60",
-                                        "128,0,32,32,60",
-                                        "160,0,32,32,60",
-                                        "192,0,32,32,60",
-                                        "224,0,32,32,800",
-                                        "256,0,32,32,60",
-                                        "288,0,32,32,60",
-                                        "320,0,32,32,60",
-                                        "352,0,32,32,60",
-                                        "384,0,32,32,60"
-                                }))
-                .add("player_walk",
-                        loadAnimation(
-                                "/images/sprites01.png",
-                                true,
-                                new String[]{
-                                        "0,32,32,32,60",
-                                        "32,32,32,32,60",
-                                        "64,32,32,32,60",
-                                        "96,32,32,32,60",
-                                        "128,32,32,32,60",
-                                        "160,32,32,32,60",
-                                        "192,32,32,32,60",
-                                        "224,32,32,32,60"
-                                }))
-                .add("player_jump",
-                        loadAnimation(
-                                "/images/sprites01.png",
-                                true,
-                                new String[]{
-                                        "0,160,32,32,60",
-                                        "32,160,32,32,60",
-                                        "64,160,32,32,60",
-                                }))
-                .add("player_fall",
-                        loadAnimation(
-                                "/images/sprites01.png",
-                                true,
-                                new String[]{
-                                        "96,160,32,32,60",
-                                        "128,160,32,32,60",
-                                        "160,160,32,32,60"
-                                }));
+                .add("player_idle", animations.get("player_idle"))
+                .add("player_walk", animations.get("player_walk"))
+                .add("player_fall", animations.get("player_fall"))
+                .add("player_jump", animations.get("player_jump"));
 
         Entity crystal = new Entity("crystal_1", 0, -28, Color.RED, Color.YELLOW)
                 .setSize(16, 16)
-                .add("crystal_spinning",
-                        loadAnimation(
-                                "/images/spinning-crystal.png",
-                                true,
-                                new String[]{
-                                        "0,0,32,32,150",  // frame 1
-                                        "32,0,32,32,150", // frame 2
-                                        "64,0,32,32,150", // frame 3
-                                        "96,0,32,32,150"  // frame 4
-                                }))
+                .add("crystal_spinning", animations.get("crystal_spinning"))
                 .setParentRelative(true)
                 .setPriority(2)
                 .add(new CrystalBehavior());
@@ -1215,25 +1255,6 @@ public class Game extends JPanel {
         add(cam);
     }
 
-    private Animation loadAnimation(String imageSrcPath, boolean loop, String[] framesDef) {
-        BufferedImage[] imgs = new BufferedImage[framesDef.length];
-        long[] frameTimes = new long[framesDef.length];
-        BufferedImage imageSource = resources.getImage(imageSrcPath);
-        int i = 0;
-        for (String f : framesDef) {
-            String[] val = f.split(",");
-            int x = Integer.valueOf(val[0]);
-            int y = Integer.valueOf(val[1]);
-            int w = Integer.valueOf(val[2]);
-            int h = Integer.valueOf(val[3]);
-            int frameTime = Integer.valueOf(val[4]);
-            imgs[i] = imageSource.getSubimage(x, y, w, h);
-            frameTimes[i] = frameTime;
-            i++;
-        }
-
-        return new Game.Animation(imgs, frameTimes).setLoop(loop);
-    }
 
     private void loop() {
         long startTime = System.currentTimeMillis();
