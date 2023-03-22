@@ -1,6 +1,7 @@
 # ignore all IDE/Editor configuration
 .idea/
 .vscode/
+.dccache/
 *.iml
 .project
 .classpath

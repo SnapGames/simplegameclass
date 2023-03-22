@@ -1,6 +1,8 @@
 package fr.snapgames.demo.core;
 
 import java.awt.*;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Rectangle2D;
 import java.io.*;
 import java.net.URISyntaxException;
 import java.security.CodeSource;
@@ -16,80 +18,104 @@ import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 /**
- * Main application
+ * Main Game class application with all its subclasses, encapsulating services
+ * and entities.
  *
  * @author Frédéric Delorme
  * @since 1.0.0
  */
 public class Game extends JPanel {
 
+    /**
+     * This enumeration define all the possible configuration attributes to be used
+     * by the {@link Configuration} class.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.0
+     */
     public enum ConfigAttribute {
-        TITLE("game.title",
-                "title",
-                "MyTitle",
+        TITLE(
+                "window title",
+                "game.title",
+                "title,t",
                 "Set the window title",
+                "MyTitle",
                 v -> v),
-        DEBUG("game.debug",
-                "debug",
+        DEBUG(
+                "debug level",
+                "game.debug",
+                "debug,d",
                 "Set the debug level",
                 0,
                 Integer::valueOf),
         SCREEN_RESOLUTION(
+                "screen resolution",
                 "game.screen.resolution",
-                "resolution",
+                "resolution,r",
                 "define the screen resolution (pixel rated !)",
                 new Dimension(320, 200),
                 ConfigAttribute::toDimension),
         WINDOW_SIZE(
+                "window size",
                 "game.window.size",
-                "size",
+                "size,s",
                 "define the window size",
                 new Dimension(320, 200),
                 ConfigAttribute::toDimension),
         PHYSIC_PLAY_AREA(
+                "play area used as world limit",
                 "game.physic.play.area",
-                "playarea",
+                "playarea,p",
                 "define the play area size",
                 new Dimension(320, 200),
                 ConfigAttribute::toDimension),
         PHYSIC_GRAVITY(
+                "gravity used for physic world",
                 "game.physic.gravity",
-                "gravity",
+                "gravity,g",
                 "define the physic gravity to apply to any entity",
                 0.981,
                 Double::valueOf);
+
+        private final String name;
 
         private static Dimension toDimension(String value) {
             String[] interpretedValue = value
                     .split("x");
             return new Dimension(
-                    Integer.valueOf(interpretedValue[0]),
-                    Integer.valueOf(interpretedValue[1]));
+                    Integer.parseInt(interpretedValue[0]),
+                    Integer.parseInt(interpretedValue[1]));
         }
 
-        String configAttribute;
+        String configAttributeKey;
         String argName;
         Object defaultValue;
 
         String description;
         Function<String, Object> attrParser;
 
-        ConfigAttribute(String c, String a, String d, Object v, Function<String, Object> p) {
+        ConfigAttribute(String name, String c, String a, String d, Object v, Function<String, Object> p) {
+            this.name = name;
             this.attrParser = p;
             this.description = d;
-            this.configAttribute = c;
+            this.configAttributeKey = c;
             this.argName = a;
             this.defaultValue = v;
+        }
+
+        public String getName() {
+            return this.name;
         }
 
         public Object getDefaultValue() {
             return defaultValue;
         }
 
-        public String getConfigAttribute() {
-            return this.configAttribute;
+        public String getConfigAttributeKey() {
+            return this.configAttributeKey;
         }
 
         public String getDescription() {
@@ -105,70 +131,64 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * <p>
+     * The {@link Configuration} comopnent help to set attributes and their values
+     * as configuration with default values.
+     * <p>
+     * The set of possible configuartrion is defined in a {@link ConfigAttribute}
+     * enumeration.
+     *
+     * <p>
+     * The configruation default values are loaded from a file.
+     * <p>
+     * Those default attribute values can be overriden through CLI arguments, the
+     * resulting configuration is then saved to a backup file
+     *
+     * @author Frédéric Delorme
+     * @see ConfigAttribute
+     * @since 1.0.0
+     */
     public class Configuration {
         ConfigAttribute[] attributes = ConfigAttribute.values();
         private Map<ConfigAttribute, Object> configurationValues = new ConcurrentHashMap<>();
 
+        /**
+         * Initialize the COnfiguration set with the properties file values.
+         * It also override those default values with argument (args) from CLI.
+         *
+         * @param file the properties file to be loaded a default configuration values.
+         * @param args the Arguments array from java Command Line Interface.
+         */
         public Configuration(String file, String[] args) {
 
-            Arrays.stream(attributes).forEach(ca -> {
-                configurationValues.put(ca, ca.getDefaultValue());
-            });
+            Arrays.stream(attributes).forEach(ca -> configurationValues.put(ca, ca.getDefaultValue()));
             parseConfigFile(file);
             parseArgs(args);
             save("backup.properties");
         }
 
+        /**
+         * Parse the configuration properties file to extract default values.
+         *
+         * @param configFile the path to the Properties file to be loaded as default
+         *                   configuration values.
+         */
         public int parseConfigFile(String configFile) {
             int status = 0;
             Properties props = new Properties();
             if (Optional.ofNullable(configFile).isPresent()) {
                 // Read default jar embedded file
-                try {
-                    props.load(Configuration.class.getResourceAsStream(configFile));
-                    System.out.printf("INFO : file=%s : find and parse the JAR embedded configuration file.%n",
-                            configFile);
-                } catch (IOException e) {
-                    System.err.printf("ERROR : file=%s : Unable to find and parse the JAR embedded configuration file : %s%n",
-                            configFile,
-                            e.getMessage());
-                }
+                loadDefaultConfigFile(configFile, props);
 
                 // Overload it with custom file if exists
-                String jarDir = "";
-                String externalConfigFile = "";
-                try {
-                    externalConfigFile = getJarRootPath(configFile);
-                    props.load(new FileReader(externalConfigFile));
-                    System.out.printf("INFO : file=%s : configuration overloaded with side part configuration file.%n",
-                            externalConfigFile);
-                } catch (URISyntaxException | IOException e) {
-                    System.out.printf(
-                            "WARNING : Side part configuration file not found: %s%n",
-                            e.getMessage());
-                }
-
+                loadCustomFileIfExists(configFile, props);
 
                 // if properties values has been loaded
-                if (props.entrySet().size() > 0) {
-                    for (Map.Entry<Object, Object> prop : props.entrySet()) {
-                        String[] kv = new String[]{(String) prop.getKey(), (String) prop.getValue()};
-                        if (!ifArgumentFoundSetToValue(kv)) {
-                            System.err.printf("file=%s : Unknown property %s with value %s%n",
-                                    configFile,
-                                    prop.getKey(),
-                                    prop.getValue());
-                            status = -1;
-                        } else {
-                            System.out.printf("file=%s : set %s to %s%n",
-                                    configFile,
-                                    prop.getKey().toString(),
-                                    prop.getValue().toString());
-                        }
-                    }
-
+                if (!props.isEmpty()) {
+                    status = extractConfigValuesFromProps(configFile, status, props);
                 } else {
-                    System.err.printf("file=%s : No file %s has been loaded, error in configuration file.%n",
+                    System.err.printf("ERROR: No file %s has been loaded, error in configuration file.%n",
                             configFile);
                     status = -1;
                 }
@@ -178,22 +198,118 @@ public class Game extends JPanel {
             return status;
         }
 
+        /**
+         * Extract the values from the Properties (props) object to full feed the
+         * {@link Configuration#configurationValues} with.
+         *
+         * @param configFile the configuration properties file path
+         * @param status     the previous status
+         * @param props      the properties file.
+         * @return status = -1 if error or previous status value.
+         */
+        private int extractConfigValuesFromProps(String configFile, int status, Properties props) {
+            for (Map.Entry<Object, Object> prop : props.entrySet()) {
+                String[] kv = new String[]{(String) prop.getKey(), (String) prop.getValue()};
+                if (ifArgumentFoundSetToValue(kv) == null) {
+                    System.err.printf("WARNING: file=%s : Unknown property '%s' with value '%s'%n",
+                            configFile,
+                            prop.getKey(),
+                            prop.getValue());
+                    status = -1;
+                }
+            }
+            return status;
+        }
+
+        /**
+         * Retrieve the configuration from an external custom file (out of the JAR) to
+         * override default values.
+         *
+         * @param pathToExternalConfigFile the path to the external configuration file.
+         * @param props                    the Properteis instance to be overriden with
+         *                                 file
+         *                                 extracted values.
+         */
+        private void loadCustomFileIfExists(String pathToExternalConfigFile, Properties props) {
+            String jarDir = "";
+            String externalConfigFile = "";
+            FileReader customConfigFile = null;
+            try {
+                externalConfigFile = getJarRootPath(pathToExternalConfigFile);
+                customConfigFile = new FileReader(externalConfigFile);
+                props.load(customConfigFile);
+                System.out.printf("INFO : file=%s : configuration overloaded with side part configuration file.%n",
+                        externalConfigFile);
+            } catch (URISyntaxException | IOException e) {
+                System.out.printf(
+                        "WARNING : Side part configuration file %s not found: %s%n",
+                        externalConfigFile,
+                        e.getMessage());
+            } finally {
+                if (Optional.ofNullable(customConfigFile).isPresent()) {
+                    try {
+                        customConfigFile.close();
+                    } catch (IOException e) {
+                        System.err.printf(
+                                "ERROR : unable to close file %s: %s%n",
+                                externalConfigFile,
+                                e.getMessage());
+                    }
+                }
+            }
+        }
+
+        /**
+         * Load the default configuration properties file (configFile).
+         *
+         * @param configFile the path to the internal (JAR inside) configuration
+         *                   properties file.
+         * @param props      the Properties instance to be full-feed with.
+         */
+        private void loadDefaultConfigFile(String configFile, Properties props) {
+            try {
+                props.load(Configuration.class.getResourceAsStream(configFile));
+                System.out.printf("INFO : file=%s : find and parse the JAR embedded configuration file.%n",
+                        configFile);
+            } catch (IOException e) {
+                System.err.printf(
+                        "ERROR : file=%s : Unable to find and parse the JAR embedded configuration file : %s%n",
+                        configFile,
+                        e.getMessage());
+            }
+        }
+
         private String getJarRootPath(String configFile) throws URISyntaxException {
             String jarDir;
             String externalConfigFile;
             CodeSource codeSource = Game.class.getProtectionDomain().getCodeSource();
             File jarFile = new File(codeSource.getLocation().toURI().getPath());
             jarDir = jarFile.getParentFile().getPath();
-            externalConfigFile = jarDir + File.separator + "my-" + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1) : configFile);
+            externalConfigFile = jarDir + File.separator + "my-"
+                    + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1)
+                    : configFile);
             return externalConfigFile;
         }
 
+        /**
+         * Parse the command line interface arguments to extract possible values.
+         * if the first arg is '?' or 'help' or 'h', the help message will be displayed.
+         * if some argument is pased after the help resuest, only help on t those
+         * arguments will be displayed.
+         *
+         * @param args array of arguments from the Java command line interface.
+         */
         public void parseArgs(String[] args) {
             if (args.length > 0) {
                 for (String arg : args) {
                     String[] kv = arg.split("=");
-                    if (ifArgumentFoundSetToValue(kv)) {
-                        System.out.printf("argument: set %s to %s%n", kv[0], kv[1]);
+                    if ("?help".contains(arg.toLowerCase())) {
+                        displayHelpMessage(args);
+                        System.exit(0);
+                    }
+                    ConfigAttribute ca = ifArgumentFoundSetToValue(kv);
+                    if (Optional.ofNullable(ca).isPresent()) {
+                        System.out.printf("INFO: configuration set from argument '%s=%s'%n", kv[0], kv[1]);
                     } else {
                         displayHelpMessage(kv[0], kv[1]);
                     }
@@ -201,51 +317,137 @@ public class Game extends JPanel {
             }
         }
 
+        /**
+         * Display specific Help about one or more arguments.
+         *
+         * @param args the list of arguments froil CLI. The furst one (args[0]) must be
+         *             contained in the '?help' string request.
+         */
+        private void displayHelpMessage(String[] args) {
+            if ("?help".contains(args[0].toLowerCase())) {
+                System.err.printf("%n---%nShow Help details about the following arguments:%n---%n");
+                for (int i = 1; i < args.length; i++) {
+                    String arg = args[i];
+                    Stream<ConfigAttribute> stream = Arrays.stream(attributes);
+                    Optional<ConfigAttribute> findCa = stream.filter(ca -> ca.getArgName().equals(arg)).findFirst();
+                    if (findCa.isPresent()) {
+                        ConfigAttribute correspondingCA = findCa.get();
+                        System.err.printf("-> [%s] : %s (default value is %s)%n",
+                                correspondingCA.getArgName(),
+                                correspondingCA.getDescription(),
+                                write(correspondingCA.getDefaultValue()));
+                    } else {
+                        System.err.printf("ERROR: the argument %s is unknown",
+                                args[i]);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Display ahelp message regarding ubnkon argument and show default Help.
+         *
+         * @param unknownAttributeName unkown attribute's name
+         * @param attributeValue       value trying to be assigned to this unkown
+         *                             argument.
+         */
         public void displayHelpMessage(String unknownAttributeName, String attributeValue) {
+            System.err.printf("ERROR: Unknown atttribute %s with value %s%n", unknownAttributeName, attributeValue);
             displayHelpMessage();
         }
 
+        /**
+         * Display default help message for all {@link ConfigAttribute} arguments.
+         */
         public void displayHelpMessage() {
-            Arrays.stream(attributes).forEach(ca -> {
-                System.err.printf("- %s : %s (default value is %s)%n",
-                        ca.getArgName(),
-                        ca.getDescription(),
-                        ca.getDefaultValue().toString());
-            });
+            // retrieve current jar name
+            String jarName = new java.io.File(Game.class.getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .getPath())
+                    .getName();
+            // show help about the possubke arguments for the configuration
+            System.err.printf("%n---%nHelp about configuration%n  $>java -jar %s [args]%n----%n", jarName);
+            Arrays.stream(attributes).forEach(ca -> System.err.printf("-> [%s] : %s (default value is %s)%n",
+                    ca.getArgName(),
+                    ca.getDescription(),
+                    write(ca.getDefaultValue())));
         }
 
-        public boolean ifArgumentFoundSetToValue(String[] kv) {
+        /**
+         * If the kv[] (where kv[0] is key and kv[1] si value) is a known Configuration
+         * argument, set the corresponding {@link ConfigAttribute} in the
+         * {@link Configuration#configurationValues} map.
+         *
+         * @param kv kv[0] is key and kv[1] si value
+         * @return true if updated or false if unknown.
+         */
+        public ConfigAttribute ifArgumentFoundSetToValue(String[] kv) {
             boolean found = false;
             for (ConfigAttribute ca : attributes) {
-                if (ca.getArgName().equals(kv[0]) || ca.getConfigAttribute().equals(kv[0])) {
-                    configurationValues.put(ca, ca.getAttrParser().apply(kv[1]));
-                    found = true;
-                    break;
+                String[] argumentNames = ca.getArgName().split(",");
+                if (Arrays.stream(argumentNames)
+                        .filter(kv[0]::equals).findFirst()
+                        .orElse(null) != null
+                        || ca.getConfigAttributeKey().equals(kv[0])) {
+                    Object value = ca.getAttrParser().apply(kv[1]);
+                    configurationValues.put(ca, value);
+                    System.out.printf("INFO: Set the configuration '%s' to '%s'%n", ca.getName(), value.toString());
+                    return ca;
                 }
             }
-            return found;
+            return null;
         }
 
-        public void setAttributes(ConfigAttribute[] values) {
-            attributes = values;
-        }
-
+        /**
+         * Retrieve the value of a specific {@link ConfigAttribute}.
+         *
+         * @param ca the {@link ConfigAttribute} you want to retrieve the value for.
+         * @return the current value of the {@link ConfigAttribute} from the
+         * {@link Configuration#configurationValues} map.
+         */
         public Object get(ConfigAttribute ca) {
             return configurationValues.get(ca);
         }
 
-        public void save(String filePath) {
+        /**
+         * Save the current configuration into a backup properties file.
+         *
+         * @param backupFilePath filename for the backup proprteis file.
+         */
+        public void save(String backupFilePath) {
             Properties props = new Properties();
             for (Map.Entry<ConfigAttribute, Object> e : configurationValues.entrySet()) {
-                props.setProperty(e.getKey().configAttribute, write(e.getValue()));
+                props.setProperty(e.getKey().configAttributeKey, write(e.getValue()));
+
             }
+            System.out.printf(
+                    "INFO: save the current configuration to %s%n",
+                    backupFilePath);
+            String backupRootFilePath = "";
             try {
-                props.store(new FileOutputStream(getJarRootPath(filePath)), "backup current values");
-            } catch (IOException | URISyntaxException e) {
-                System.err.printf("ERROR: Unable to write current configuration values to %s%n", filePath);
+                backupRootFilePath = getJarRootPath(backupFilePath);
+                props.store(new FileOutputStream(backupRootFilePath), "backup current values");
+            } catch (URISyntaxException | IOException e) {
+                System.err.printf(
+                        "ERROR: Unable to write current configuration values to %s:%s%n",
+                        backupFilePath,
+                        e.getMessage());
             }
         }
 
+        /**
+         * Write the value object as a formatted string according to its type.
+         * <ul>
+         * <li><code>{@link Dimension}</code> object are converted to a string
+         * <code>[width]x[height]</code></li>
+         * <li>other object value are just converted to String using their own
+         * <code>.toString()</code> implementation.</li>
+         * </ul>
+         *
+         * @param value the object vamue to be output as string in a a formatted way.
+         * @return
+         */
         private String write(Object value) {
             String output = "";
             switch (value.getClass().getName()) {
@@ -260,13 +462,31 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * Resource management with a cache principle, avoiding accessing disk when not
+     * necessary.
+     * It is loadnig-and-caching {@link Font} or {@link BufferedImage} with
+     * dedicated getter.
+     * access to cached resources is insered through the file path (String).
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.0
+     */
     public class Resources {
+
         Map<String, Object> resources;
 
         public Resources() {
             resources = new ConcurrentHashMap<>();
         }
 
+        /**
+         * Retrieve an image from resources cache. if not already exist, load it into
+         * cache
+         *
+         * @param file the file to be loaded as an Image
+         * @return the corresponding BufferedImage instance.
+         */
         public BufferedImage getImage(String file) {
             BufferedImage img = null;
             if (!resources.containsKey(file)) {
@@ -275,19 +495,54 @@ public class Game extends JPanel {
                 } catch (Exception e) {
                     System.err.printf("Unable to read the image %s", file);
                 }
-                resources.put(file, img);
+                resources.putIfAbsent(file, img);
             }
 
             return (BufferedImage) resources.get(file);
         }
+
+        /**
+         * Retrieve a font from resources cache. if not already exist, load it into
+         * cache
+         *
+         * @param file the file to be loaded as an Image
+         * @return the corresponding BufferedImage instance.
+         */
+        public Font getFont(String file) {
+            Font font = null;
+
+            if (!resources.containsKey(file)) {
+                try {
+                    font = getFont(file);
+
+                } catch (Exception e) {
+                    System.err.printf("ERROR: unable to find font file %s: %s", file, e.getMessage());
+                }
+                resources.putIfAbsent(file, font);
+            }
+            return (Font) resources.get(file);
+        }
     }
 
+    /**
+     * List of possible Entity type. stadard ones can be RECTANGLE, ELLIPSE or
+     * IMAGE.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.0
+     */
     public enum EntityType {
         RECTANGLE,
         ELLIPSE,
         IMAGE;
     }
 
+    /**
+     * Core Entity for all managed object on screen.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.0
+     */
     public class Entity {
         static int index = 0;
         public int priority = 0;
@@ -297,6 +552,8 @@ public class Game extends JPanel {
         double x = 0, y = 0;
         double dx = 0, dy = 0;
         double width = 16, height = 16;
+
+        Shape bbox;
         double mass = 1.0;
         BufferedImage image = null;
         Color borderColor = Color.WHITE;
@@ -327,6 +584,15 @@ public class Game extends JPanel {
             this.y = y;
             this.dx = 0;
             this.dy = 0;
+            updateBBox();
+        }
+
+        private void updateBBox() {
+            if (type.equals(EntityType.ELLIPSE)) {
+                this.bbox = new Ellipse2D.Double(x, y, width, height);
+            } else {
+                this.bbox = new Rectangle2D.Double(x, y, width, height);
+            }
         }
 
         public Entity setMaterial(Material mat) {
@@ -472,8 +738,10 @@ public class Game extends JPanel {
             this.nbParticles = nbParticles;
         }
 
-        public void createParticle(Behavior<Particle> bp) {
-            // TODO: create behavior to generate particle
+        public void createParticle(Game g, ParticleBehavior pb) {
+            if (Optional.ofNullable(pb).isPresent()) {
+                pb.create(g, this);
+            }
         }
     }
 
@@ -535,6 +803,8 @@ public class Game extends JPanel {
         boolean loop = true;
         boolean end = false;
 
+        double speed = 1.0;
+
         long animationTime = 0;
         private long[] frameTimes;
 
@@ -549,6 +819,11 @@ public class Game extends JPanel {
             return this;
         }
 
+        public Animation setSpeed(double s) {
+            this.speed = s;
+            return this;
+        }
+
         public BufferedImage getFrame() {
             if (index < frames.length && frames[index] != null) {
                 return frames[index];
@@ -558,7 +833,7 @@ public class Game extends JPanel {
         }
 
         public void update(long elapsed) {
-            this.animationTime += elapsed;
+            this.animationTime += (elapsed * speed);
             if (this.animationTime > this.frameTimes[this.index]) {
                 this.animationTime = 0;
                 if (this.index + 1 < this.frames.length) {
@@ -591,21 +866,26 @@ public class Game extends JPanel {
         }
 
         /**
-         * Load animation's frames from animations.properties file to create {@link Animation} object.
+         * Load animation's frames from animations.properties file to create
+         * {@link Animation} object.
          * format of each animation in the properties file
+         *
          * <pre>
          * animation_code=[path-to-image-file];[loop/noloop];{[x],[y],[w],[h],[time]+}
          * </pre>
-         * Each line in the file will contain one animation. the 3 part of the description of an animation if composed of multiple
+         * <p>
+         * Each line in the file will contain one animation. the 3 part of the
+         * description of an animation if composed of multiple
          * <code>[x],[y],[w],[h],[time]+</code> section, each defining one frame.
          * <ul>
-         *     <li><code>path-to-image-file</code> path to the image file to extract frames from</li>
-         *     <li><code>loop/noloop</code> loop => the animation will loop.</li>
-         *     <li><code>x</code> horizontal position in the image file of this frame</li>
-         *     <li><code>y</code> vertical position in the image file of this frame</li>
-         *     <li><code>w</code> width of the frame in the image file</li>
-         *     <li><code>h</code> height of the frame in the image file</li>
-         *     <li><code>time</code> time duration for this frame in the animation</li>
+         * <li><code>path-to-image-file</code> path to the image file to extract frames
+         * from</li>
+         * <li><code>loop/noloop</code> loop => the animation will loop.</li>
+         * <li><code>x</code> horizontal position in the image file of this frame</li>
+         * <li><code>y</code> vertical position in the image file of this frame</li>
+         * <li><code>w</code> width of the frame in the image file</li>
+         * <li><code>h</code> height of the frame in the image file</li>
+         * <li><code>time</code> time duration for this frame in the animation</li>
          * </ul>
          *
          * @param animationFile
@@ -740,8 +1020,35 @@ public class Game extends JPanel {
         Particle create(Game m, Particle parent);
     }
 
+    /**
+     * <p>
+     * A simple home grown {@link PhysicEngine} to process all entties and make the
+     * behave near some realistic physic law (adapted and simplified ones.)
+     * <p>
+     * It it base don the {@link Entity#x},{@link Entity#y} position,
+     * {@link Entity#dx},{@link Entity#dy} velocity attribtues and the
+     * {@link Entity#mass} from the
+     * {@link Entity} class.
+     * <p>
+     * It is using a {@link World} obnject defining {@link World#playArea} and
+     * the internal {@link World#gravity} value.
+     * <p>
+     * Each Entity has its own {@link Material} characteristics, influencing
+     * elasticity, roughness, density.
+     *
+     * <blockquote><strong>INFO:</strong> the {@link PhysicEngine#TIME_FACTOR} is an
+     * internal
+     * reduction factor to adapt global speed of all object on screen.</blockquote>
+     *
+     * @author Frédéric Delorme
+     * @see Entity
+     * @see Material
+     * @see World
+     * @since 1.0.0
+     */
     public class PhysicEngine {
 
+        static final double TIME_FACTOR = 0.045;
         Game game;
         World world;
 
@@ -788,7 +1095,6 @@ public class Game extends JPanel {
         }
 
         private void updateEntity(Entity e, long elapsed) {
-            double TIME_FACTOR = 0.045;
             double time = elapsed * TIME_FACTOR;
             if (!e.relativeToParent) {
                 e.dy += world.gravity * 10.0 / e.mass;
@@ -807,6 +1113,8 @@ public class Game extends JPanel {
             if (!e.getBehaviors().isEmpty()) {
                 e.getBehaviors().forEach(b -> b.update(elapsed, e));
             }
+
+            e.updateBBox();
         }
 
         public void setWorld(World world) {
@@ -949,9 +1257,10 @@ public class Game extends JPanel {
 
             JFrame frame = new JFrame(title);
 
-            //setPreferredSize(size);
+            // setPreferredSize(size);
             this.game.setPreferredSize(size);
-            frame.setContentPane(this.game);
+            frame.setLayout(new GridLayout());
+            frame.add(this.game);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
 
@@ -1035,7 +1344,7 @@ public class Game extends JPanel {
         private void drawDebugLine(Graphics2D g) {
             Dimension windowSize = (Dimension) this.game.config.get(ConfigAttribute.WINDOW_SIZE);
             g.setColor(new Color(0.6f, 0.3f, 0.0f, 0.8f));
-            g.fillRect(0, frame.getHeight() - 20, frame.getWidth(), 20);
+            g.fillRect(0, frame.getHeight() - 28, frame.getWidth(), 20);
             g.setFont(g.getFont().deriveFont(12.0f));
             g.setColor(Color.WHITE);
             g.drawString(String.format("[ dbg:%d | nb:%d | pause: %s | cam:%s ]",
@@ -1043,7 +1352,7 @@ public class Game extends JPanel {
                             game.entities.size(),
                             game.pause ? "on" : "off",
                             camera != null ? camera.name : "none"),
-                    12, frame.getHeight() - 4);
+                    12, frame.getHeight() - 14);
         }
 
         private void drawDebugEntityInfo(Graphics2D g, Entity e) {
@@ -1058,7 +1367,7 @@ public class Game extends JPanel {
             g.setColor(Color.ORANGE);
             Stroke b = g.getStroke();
             g.setStroke(new BasicStroke(0.2f));
-            g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
+            g.draw(e.bbox);
             g.setStroke(b);
 
             // draw id and name
@@ -1146,18 +1455,33 @@ public class Game extends JPanel {
         }
     }
 
-    private class CrystalBehavior implements Behavior<Entity> {
+    private class RandomGravitingBehavior implements Behavior<Entity> {
+        private double speed;
+        private double radius1;
+        private double y;
+        private double x;
+
+        public RandomGravitingBehavior(double x, double y, double radius1) {
+            this.x = x;
+            this.y = y;
+            this.radius1 = radius1;
+            this.speed = -0.5 + Math.random();
+        }
+
         @Override
         public void update(long elapsed, Entity e) {
-            double life = (Double) e.getAttribute("life", Double.valueOf(-Math.PI));
-            life += 0.01;
-            if (life > Math.PI) {
-                life = -Math.PI;
+            double life = (Double) e.getAttribute("life", Double.valueOf(Math.PI * 2.0));
+            life += 0.05 * speed;
+            if (life > Math.PI * 2) {
+                life = 0;
             }
-            e.x = (Math.cos(life) * 16.0);
-            e.y = -40.0 + (Math.sin(life) * 16.0)
-                    + (Math.sin(life * 2.0) * 8.0)
-                    + (Math.sin(life * 4.0) * 4.0);
+            if (life < 0) {
+                life = Math.PI * 2.0;
+            }
+            e.x = x + (Math.cos(life) * radius1);
+            e.y = y + (Math.sin(life) * radius1)
+                    + (Math.sin(life * radius1 * 0.25) * 8.0)
+                    + (Math.sin(life * radius1 * 0.5) * 4.0);
             e.setAttribute("life", life);
         }
     }
@@ -1222,17 +1546,16 @@ public class Game extends JPanel {
                 .setPriority(1)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
                 .add(new PlayerInput())
-                .add("player_idle", animations.get("player_idle"))
+                .add("player_idle", animations.get("player_idle").setSpeed(0.6))
                 .add("player_walk", animations.get("player_walk"))
                 .add("player_fall", animations.get("player_fall"))
                 .add("player_jump", animations.get("player_jump"));
 
-        Entity crystal = new Entity("crystal_1", 0, -28, Color.RED, Color.YELLOW)
+        Entity crystal = new Entity("crystal", 0, -28, Color.RED, Color.YELLOW)
                 .setSize(16, 16)
-                .add("crystal_spinning", animations.get("crystal_spinning"))
+                .add("crystal_spinning", animations.get("crystal_spinning").setSpeed(0.5))
                 .setParentRelative(true)
-                .setPriority(2)
-                .add(new CrystalBehavior());
+                .setPriority(2);
         player.addChild(crystal);
         add(player);
         add(crystal);
@@ -1244,7 +1567,7 @@ public class Game extends JPanel {
                 .setFont(getFont().deriveFont(16.0f))
                 .setTextColor(Color.WHITE)
                 .setShadowColor(Color.BLACK)
-                .setPriority(10)
+                .setPriority(1)
                 .setFixedToCamera(true);
         add(score);
 
@@ -1254,7 +1577,6 @@ public class Game extends JPanel {
                 .setViewport(vp);
         add(cam);
     }
-
 
     private void loop() {
         long startTime = System.currentTimeMillis();
@@ -1298,7 +1620,6 @@ public class Game extends JPanel {
     private void dispose() {
         renderer.dispose();
     }
-
 
     private boolean isPause() {
         return pause;
