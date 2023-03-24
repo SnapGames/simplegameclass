@@ -150,7 +150,7 @@ public class Game extends JPanel {
      * @see ConfigAttribute
      * @since 1.0.0
      */
-    public class Configuration {
+    public static class Configuration {
         ConfigAttribute[] attributes = ConfigAttribute.values();
         private Map<ConfigAttribute, Object> configurationValues = new ConcurrentHashMap<>();
 
@@ -167,6 +167,10 @@ public class Game extends JPanel {
             parseConfigFile(file);
             parseArgs(args);
             save("backup.properties");
+        }
+
+        public Configuration() {
+            this("/config.properties", new String[]{});
         }
 
         /**
