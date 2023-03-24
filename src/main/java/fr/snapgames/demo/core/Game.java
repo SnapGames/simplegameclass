@@ -17,6 +17,7 @@ import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -133,7 +134,6 @@ public class Game extends JPanel {
     }
 
     /**
-     * <p>
      * The {@link Configuration} comopnent help to set attributes and their values
      * as configuration with default values.
      * <p>
@@ -541,15 +541,40 @@ public class Game extends JPanel {
         IMAGE;
     }
 
+    /**
+     * A Node interface to define child/prent hierarchy structure.
+     * <p>
+     * Here is an implementation with T=Entity
+     * <pre>
+     *     Object&lt;Entity&gt;
+     *     |__ Child1&lt;Entity&gt;
+     *     |__ Child2&lt;tEntity&gt;
+     * </pre>
+     *
+     * @param <T> the object type to be hierarchically organized.
+     * @author Frédéric Delorme
+     * @since 1.0.0
+     */
     public interface Node<T> {
+
+        String getName();
+
+        long getId();
+
         T setParent(T p);
+
+        T getParent();
+
+        T addChild(T c);
+
+        List<T> getChild();
     }
 
     public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
-        static int index = 0;
-        public int priority = 0;
-        long id = ++index;
-        String name = "default_" + id;
+        private static long index = 0;
+        private long id = ++index;
+        private String name = "default_" + id;
+        protected int priority = 0;
         EntityType type = EntityType.RECTANGLE;
         double x = 0, y = 0;
         double dx = 0, dy = 0;
@@ -600,6 +625,14 @@ public class Game extends JPanel {
             }
         }
 
+        public long getId() {
+            return this.id;
+        }
+
+        public String getName() {
+            return this.name;
+        }
+
         public T setMaterial(Material mat) {
             this.material = mat;
             return (T) this;
@@ -637,6 +670,7 @@ public class Game extends JPanel {
             return (T) this;
         }
 
+
         public List<T> getChild() {
             return child;
         }
@@ -645,6 +679,10 @@ public class Game extends JPanel {
             c.setParent((T) this);
             this.child.add(c);
             return (T) this;
+        }
+
+        public T getParent() {
+            return (T) parent;
         }
 
         public T add(Behavior<T> b) {
@@ -763,7 +801,7 @@ public class Game extends JPanel {
             return (T) this;
         }
 
-        public int getCurrentIndex() {
+        public long getCurrentIndex() {
             return index;
         }
     }
@@ -1159,7 +1197,7 @@ public class Game extends JPanel {
 
         @Override
         public Particle create(Particle parent) {
-            Particle pChild = (Particle) new Particle(parent.name + "_drop" + parent.getCurrentIndex())
+            Particle pChild = (Particle) new Particle(parent.getName() + "_drop" + parent.getCurrentIndex())
                     .setType(EntityType.DOT)
                     .setPhysicType(PhysicType.DYNAMIC)
                     .setSize(1, 1)
@@ -1359,7 +1397,7 @@ public class Game extends JPanel {
                     //Nothing to do
                 }
                 default -> {
-                    System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
+                    System.err.printf("ERROR: Unable to draw the entity %s%n", e.getName());
                 }
             }
             // draw debug info if required
@@ -1833,6 +1871,7 @@ public class Game extends JPanel {
                 physicEngine.update(elapsed);
                 renderer.update(elapsed);
                 updates++;
+                internalTimeFrames += elapsed;
             }
 
             // prepare statistics
@@ -1843,7 +1882,6 @@ public class Game extends JPanel {
 
             // compute some stats
             frames++;
-            internalTimeFrames += elapsed;
             internalTime += elapsed;
             if (internalTimeFrames > 1000) {
                 ups = updates;
@@ -1862,11 +1900,22 @@ public class Game extends JPanel {
     private void prepareStats(int fps, int ups, long internalTime, Map<String, Object> stats) {
         stats.put("dbg", getDebugLevel());
         stats.put("obj", entities.size());
-        stats.put("cam", renderer.getCamera() != null ? renderer.getCamera().name : "none");
+        stats.put("cam", renderer.getCamera() != null ? renderer.getCamera().getName() : "none");
         stats.put("fps", fps);
         stats.put("ups", ups);
-        stats.put("time", internalTime);
+        stats.put("time", formatTime(internalTime));
         stats.put("pause", isPause());
+    }
+
+    public static String formatTime(long millis) {
+        long seconds = Math.round((double) millis / 1000);
+        long hours = TimeUnit.SECONDS.toHours(seconds);
+        if (hours > 0)
+            seconds -= TimeUnit.HOURS.toSeconds(hours);
+        long minutes = seconds > 0 ? TimeUnit.SECONDS.toMinutes(seconds) : 0;
+        if (minutes > 0)
+            seconds -= TimeUnit.MINUTES.toSeconds(minutes);
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
     private void waitForMs(int ms) {
@@ -1917,7 +1966,7 @@ public class Game extends JPanel {
         if (entity instanceof Camera) {
             renderer.setCamera((Camera) entity);
         }
-        entities.put(entity.name, entity);
+        entities.put(entity.getName(), entity);
     }
 
 
