@@ -18,6 +18,7 @@ import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -140,9 +141,9 @@ public class Game extends JPanel {
      * enumeration.
      *
      * <p>
-     * The configruation default values are loaded from a file.
+     * The {@link Configuration} default values are loaded from a file.
      * <p>
-     * Those default attribute values can be overriden through CLI arguments, the
+     * Those default attribute values can be override through CLI arguments, the
      * resulting configuration is then saved to a backup file
      *
      * @author Frédéric Delorme
@@ -154,8 +155,8 @@ public class Game extends JPanel {
         private Map<ConfigAttribute, Object> configurationValues = new ConcurrentHashMap<>();
 
         /**
-         * Initialize the COnfiguration set with the properties file values.
-         * It also override those default values with argument (args) from CLI.
+         * Initialize the {@link Configuration} set with the properties file values.
+         * It also overrides those default values with argument (args) from CLI.
          *
          * @param file the properties file to be loaded a default configuration values.
          * @param args the Arguments array from java Command Line Interface.
@@ -532,21 +533,22 @@ public class Game extends JPanel {
      * @since 1.0.0
      */
     public enum EntityType {
+        NONE,
+        DOT,
+        LINE,
         RECTANGLE,
         ELLIPSE,
         IMAGE;
     }
 
-    /**
-     * Core Entity for all managed object on screen.
-     *
-     * @author Frédéric Delorme
-     * @since 1.0.0
-     */
-    public class Entity {
+    public interface Node<T> {
+        T setParent(T p);
+    }
+
+    public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
         static int index = 0;
         public int priority = 0;
-        long id = index++;
+        long id = ++index;
         String name = "default_" + id;
         EntityType type = EntityType.RECTANGLE;
         double x = 0, y = 0;
@@ -564,30 +566,33 @@ public class Game extends JPanel {
 
         boolean relativeToParent = false;
 
-        Entity parent;
-        private List<Entity> child = new ArrayList<>();
+        T parent;
+        private List<T> child = new ArrayList<>();
 
         Map<String, Animation> animations = new HashMap<>();
         String currentAnimation = "";
         Map<String, Object> attributes = new HashMap<>();
 
-        List<Behavior<Entity>> behaviors = new ArrayList<>();
+        List<Behavior<T>> behaviors = new ArrayList<>();
         private boolean fixedToCamera;
         private boolean active = true;
 
         private long duration = -1;
         private long live = 0;
+        private PhysicType physicType = PhysicType.DYNAMIC;
 
-        public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
+        public AbstractEntity(String name, int x, int y, Color borderColor, Color fillColor) {
             this.name = name;
             this.x = x;
             this.y = y;
             this.dx = 0;
             this.dy = 0;
+            this.borderColor = borderColor;
+            this.fillColor = fillColor;
             updateBBox();
         }
 
-        private void updateBBox() {
+        void updateBBox() {
             if (type.equals(EntityType.ELLIPSE)) {
                 this.bbox = new Ellipse2D.Double(x, y, width, height);
             } else {
@@ -595,22 +600,22 @@ public class Game extends JPanel {
             }
         }
 
-        public Entity setMaterial(Material mat) {
+        public T setMaterial(Material mat) {
             this.material = mat;
-            return this;
+            return (T) this;
         }
 
-        public Entity setMass(double m) {
+        public T setMass(double m) {
             this.mass = m;
-            return this;
+            return (T) this;
         }
 
-        public Entity setFixedToCamera(boolean f) {
+        public T setFixedToCamera(boolean f) {
             this.fixedToCamera = f;
-            return this;
+            return (T) this;
         }
 
-        public Entity add(String name, Animation a) {
+        public T add(String name, Animation a) {
             this.type = EntityType.IMAGE;
             this.animations.put(name, a);
             if (currentAnimation.equals("")) {
@@ -618,48 +623,48 @@ public class Game extends JPanel {
                 this.width = animations.get(currentAnimation).getFrame().getWidth();
                 this.height = animations.get(currentAnimation).getFrame().getHeight();
             }
-            return this;
+            return (T) this;
         }
 
-        public Entity setAnimation(String name) {
+        public T setAnimation(String name) {
             this.currentAnimation = name;
-            return this;
+            return (T) this;
         }
 
-        public Entity setSize(double w, double h) {
+        public T setSize(double w, double h) {
             this.width = w;
             this.height = h;
-            return this;
+            return (T) this;
         }
 
-        public List<Entity> getChild() {
+        public List<T> getChild() {
             return child;
         }
 
-        public Entity addChild(Entity c) {
-            c.parent = this;
+        public T addChild(T c) {
+            c.setParent((T) this);
             this.child.add(c);
-            return this;
+            return (T) this;
         }
 
-        public Entity add(Behavior<Entity> b) {
+        public T add(Behavior<T> b) {
             this.behaviors.add(b);
-            return this;
+            return (T) this;
         }
 
-        public Entity setType(EntityType t) {
+        public T setType(EntityType t) {
             this.type = t;
-            return this;
+            return (T) this;
         }
 
-        public Entity setParentRelative(boolean pr) {
+        public T setParentRelative(boolean pr) {
             this.relativeToParent = pr;
-            return this;
+            return (T) this;
         }
 
-        public Entity setAttribute(String key, Object value) {
+        public T setAttribute(String key, Object value) {
             attributes.put(key, value);
-            return this;
+            return (T) this;
         }
 
         public Object getAttribute(String key, Object defaultValue) {
@@ -678,18 +683,101 @@ public class Game extends JPanel {
             return this.active;
         }
 
-        public Entity setPriority(int p) {
+        public T setPriority(int p) {
             this.priority = p;
-            return this;
+            return (T) this;
         }
 
-        public List<Behavior<Entity>> getBehaviors() {
+        public List<Behavior<T>> getBehaviors() {
             return behaviors;
         }
 
-        protected Entity setRelativeToParent(boolean rtp) {
+        protected T setRelativeToParent(boolean rtp) {
             this.relativeToParent = rtp;
-            return this;
+            return (T) this;
+        }
+
+        public List<String> getDebugInfo() {
+            List<String> info = new ArrayList<>();
+            info.add(String.format("#%d:%s", id, name));
+            if (isRelativeToParent()) {
+                info.add(String.format("offset:%3.02f,%3.02f", x, y));
+            } else {
+                info.add(String.format("pos:%3.02f,%3.02f", x, y));
+            }
+            info.add(String.format("sz :%3.02f,%3.02f", width, height));
+            info.add(String.format("spd:%3.02f,%3.02f", dx, dy));
+            info.add(String.format("anm:%s", currentAnimation));
+            info.add(String.format("life:%s", duration > -1 ? live + "/" + duration : "n/a"));
+            return info;
+        }
+
+        public T setDuration(long d) {
+            this.duration = d;
+            if (duration > 0) {
+                active = true;
+            }
+            return (T) this;
+        }
+
+        public T setPosition(double x, double y) {
+            this.x = x;
+            this.y = y;
+            return (T) this;
+        }
+
+        public void update(long elapsed) {
+            if (duration != -1) {
+                live -= elapsed;
+                if (live < 0) {
+                    live = 0;
+                    active = false;
+                }
+            }
+            updateBBox();
+        }
+
+        public T setFillColor(Color color) {
+            this.fillColor = color;
+            return (T) this;
+        }
+
+        public T setVelocity(double dx, double dy) {
+            this.dx = dx;
+            this.dy = dy;
+            return (T) this;
+        }
+
+        @Override
+        public T setParent(T p) {
+            this.parent = p;
+            return (T) this;
+        }
+
+        public PhysicType getPhysicType() {
+            return this.physicType;
+        }
+
+        public T setPhysicType(PhysicType pt) {
+            this.physicType = pt;
+            return (T) this;
+        }
+
+        public int getCurrentIndex() {
+            return index;
+        }
+    }
+
+
+    /**
+     * Core Entity for all managed object on screen.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.0
+     */
+    public class Entity extends AbstractEntity<Entity> {
+        public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
+            super(name, x, y, borderColor, fillColor);
         }
     }
 
@@ -735,13 +823,25 @@ public class Game extends JPanel {
 
         public Particle(String name, int x, int y, int nbParticles) {
             super(name, x, y, null, null);
+            this.type = EntityType.NONE;
+            this.setMass(0.0);
             this.nbParticles = nbParticles;
         }
 
         public void createParticle(Game g, ParticleBehavior pb) {
             if (Optional.ofNullable(pb).isPresent()) {
-                pb.create(g, this);
+                addChild(pb.create(this));
             }
+        }
+
+        @Override
+        public void update(long elapsed) {
+            super.update(elapsed);
+
+        }
+
+        public int getNbParticles() {
+            return nbParticles;
         }
     }
 
@@ -862,7 +962,6 @@ public class Game extends JPanel {
         }
 
         public Animations() {
-            this("/animations.properties");
         }
 
         /**
@@ -985,6 +1084,14 @@ public class Game extends JPanel {
             this.gravity = g;
             this.playArea = pa;
         }
+
+        public Dimension getPlayArea() {
+            return this.playArea;
+        }
+
+        public double getGravity() {
+            return this.gravity;
+        }
     }
 
     public class Material {
@@ -1002,22 +1109,76 @@ public class Game extends JPanel {
         }
     }
 
-    public interface Behavior<T> {
-        public default void input(UserInput ui, T e) {
+    public interface Behavior<Entity> {
+        public default void input(UserInput ui, Entity e) {
 
         }
 
-        public default void update(long elapsed, T e) {
+        public default void update(long elapsed, Entity e) {
 
         }
 
-        public default void draw(Graphics2D g, T e) {
+        public default void draw(Graphics2D g, Entity e) {
 
         }
     }
 
-    public interface ParticleBehavior extends Behavior<Particle> {
-        Particle create(Game m, Particle parent);
+    public interface ParticleBehavior<T extends Entity> extends Behavior<T> {
+        Particle create(T parent);
+    }
+
+    private class RainBehavior implements ParticleBehavior<Particle> {
+        private int batch = 10;
+        Dimension playArea;
+        List<Particle> drops = new ArrayList<>();
+
+        public RainBehavior(World world, int batch) {
+            this.playArea = world.getPlayArea();
+            this.batch = batch;
+        }
+
+        @Override
+        public void update(long elapsed, Particle e) {
+            e.setSize(playArea.width, playArea.height);
+            e.setPhysicType(PhysicType.STATIC);
+            // add drops to the particles system
+            double i = 0.0;
+            double maxBatch = ((this.batch * 0.5) + (this.batch * Math.random() * 0.5));
+            while (i < maxBatch && drops.size() < e.getNbParticles()) {
+                drops.add(create(e));
+                i += 1.0;
+            }
+
+            drops.stream().forEach(p -> {
+                if (p.y >= playArea.height - 1) {
+                    p.setPosition(playArea.width * Math.random(),
+                            0);
+                }
+            });
+        }
+
+        @Override
+        public Particle create(Particle parent) {
+            Particle pChild = (Particle) new Particle(parent.name + "_drop" + parent.getCurrentIndex())
+                    .setType(EntityType.DOT)
+                    .setPhysicType(PhysicType.DYNAMIC)
+                    .setSize(1, 1)
+                    .setPosition(
+                            playArea.width * Math.random(),
+                            0)
+                    .setFillColor(Color.CYAN)
+                    .setMass(1000.01)
+                    .setVelocity(0.5 - Math.random() * 1.0, Math.random() * 0.009)
+                    .setRelativeToParent(false);
+            parent.addChild(pChild);
+            add(pChild);
+            return pChild;
+        }
+    }
+
+    public enum PhysicType {
+        STATIC,
+        DYNAMIC
     }
 
     /**
@@ -1062,7 +1223,7 @@ public class Game extends JPanel {
                     .sorted((e1, e2) -> e1.priority < e2.priority ? 1 : -1)
                     .forEach(e -> {
                         updateEntity(e, elapsed);
-                        if (!e.isRelativeToParent()) {
+                        if (!e.isRelativeToParent() && !e.isFixedToCamera()) {
                             constraintsEntity(e);
                         }
                     });
@@ -1091,19 +1252,22 @@ public class Game extends JPanel {
                 e.dy = -(e.material.elasticity * e.dy);
                 e.contact += 8;
             }
-
         }
 
         private void updateEntity(Entity e, long elapsed) {
             double time = elapsed * TIME_FACTOR;
-            if (!e.relativeToParent) {
-                e.dy += world.gravity * 10.0 / e.mass;
-                if (e.contact > 0) {
-                    e.dx *= e.material.friction;
-                    e.dy *= e.material.friction;
+            if (!e.isFixedToCamera() && e.getPhysicType() == PhysicType.DYNAMIC) {
+                if (!e.relativeToParent) {
+                    if (e.mass != 0) {
+                        e.dy += world.gravity * 10.0 / e.mass;
+                    }
+                    if (e.contact > 0) {
+                        e.dx *= e.material.friction;
+                        e.dy *= e.material.friction;
+                    }
+                    e.x += e.dx * time;
+                    e.y += e.dy * time;
                 }
-                e.x += e.dx * time;
-                e.y += e.dy * time;
             }
             // update animation with next frame (if required)
             if (!e.currentAnimation.isEmpty()) {
@@ -1114,7 +1278,7 @@ public class Game extends JPanel {
                 e.getBehaviors().forEach(b -> b.update(elapsed, e));
             }
 
-            e.updateBBox();
+            e.update(elapsed);
         }
 
         public void setWorld(World world) {
@@ -1125,27 +1289,21 @@ public class Game extends JPanel {
     public interface DrawPlugin<T extends Entity> {
         public Class<T> getClassName();
 
-        public default void draw(Renderer r, Graphics2D g, Entity t) {
+        public default void draw(Renderer r, Graphics2D g, T t) {
         }
     }
 
-    public class EntityDrawPlugin implements DrawPlugin<Entity> {
+    public abstract class DefaultDrawPlugin<T extends Entity> implements DrawPlugin<T> {
         @Override
-        public Class<Entity> getClassName() {
-            return Entity.class;
-        }
+        public abstract Class<T> getClassName();
 
         @Override
-        public void draw(Renderer r, Graphics2D g, Entity e) {
+        public void draw(Renderer r, Graphics2D g, T e) {
             double x = e.x;
             double y = e.y;
             if (e.relativeToParent) {
                 x = e.parent.x + e.x;
                 y = e.parent.y + e.y;
-            }
-
-            if (Optional.ofNullable(r.camera).isPresent() && !e.isFixedToCamera()) {
-                r.camera.preDraw(g);
             }
 
             switch (e.type) {
@@ -1156,12 +1314,22 @@ public class Game extends JPanel {
                     g.setColor(e.borderColor);
                     g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
                 }
+                // draw a line
+                case LINE -> {
+                    g.setColor(e.borderColor);
+                    g.drawRect((int) x, (int) y, (int) (e.x + e.dx), (int) (e.y + e.dy));
+                }
                 // draw an ellipse
                 case ELLIPSE -> {
                     g.setColor(e.fillColor);
                     g.fillOval((int) x, (int) y, (int) e.width, (int) e.height);
                     g.setColor(e.borderColor);
                     g.drawOval((int) x, (int) y, (int) e.width, (int) e.height);
+                }
+                // draw a Dot (dot is a width x width Ellipse)
+                case DOT -> {
+                    g.setColor(e.fillColor);
+                    g.fillOval((int) x, (int) y, (int) e.width, (int) e.width);
                 }
                 // draw the entity corresponding image or current animation image frame
                 case IMAGE -> {
@@ -1183,7 +1351,12 @@ public class Game extends JPanel {
                                     (int) -e.width, (int) e.height,
                                     null);
                         }
+                        e.setSize(img.getWidth(), img.getHeight());
+                        e.updateBBox();
                     }
+                }
+                case NONE -> {
+                    //Nothing to do
                 }
                 default -> {
                     System.err.printf("ERROR: Unable to draw the entity %s%n", e.name);
@@ -1193,9 +1366,22 @@ public class Game extends JPanel {
             if (r.isDebugAtLeast(2)) {
                 r.drawDebugEntityInfo(g, e);
             }
-            if (Optional.ofNullable(r.camera).isPresent() && !e.isFixedToCamera()) {
-                r.camera.postDraw(g);
-            }
+        }
+    }
+
+    public class EntityDrawPlugin extends DefaultDrawPlugin<Entity> {
+
+        @Override
+        public Class<Entity> getClassName() {
+            return Entity.class;
+        }
+    }
+
+    public class ParticleDrawPlugin extends DefaultDrawPlugin<Particle> {
+
+        @Override
+        public Class<Particle> getClassName() {
+            return Particle.class;
         }
     }
 
@@ -1207,11 +1393,9 @@ public class Game extends JPanel {
         }
 
         @Override
-        public void draw(Renderer r, Graphics2D g, Entity e) {
+        public void draw(Renderer r, Graphics2D g, TextEntity textEntity) {
 
-            TextEntity textEntity = (TextEntity) e;
-
-            if (Optional.ofNullable(r.camera).isPresent() && !e.isFixedToCamera()) {
+            if (Optional.ofNullable(r.camera).isPresent() && !textEntity.isFixedToCamera()) {
                 r.camera.preDraw(g);
             }
 
@@ -1225,7 +1409,7 @@ public class Game extends JPanel {
                     textEntity.text,
                     (int) textEntity.x, (int) textEntity.y);
 
-            if (Optional.ofNullable(r.camera).isPresent() && !e.isFixedToCamera()) {
+            if (Optional.ofNullable(r.camera).isPresent() && !textEntity.isFixedToCamera()) {
                 r.camera.postDraw(g);
             }
         }
@@ -1245,8 +1429,12 @@ public class Game extends JPanel {
                     (String) config.get(ConfigAttribute.TITLE),
                     (Dimension) config.get(ConfigAttribute.WINDOW_SIZE),
                     (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION));
+
+            // add default DrawPlugin implementations
             addPlugin(new EntityDrawPlugin());
             addPlugin(new TextDrawPlugin());
+            addPlugin(new ParticleDrawPlugin());
+
         }
 
         private void addPlugin(DrawPlugin dp) {
@@ -1263,7 +1451,7 @@ public class Game extends JPanel {
             frame.add(this.game);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
-
+            frame.setLocationRelativeTo(null);
             frame.pack();
             frame.setVisible(true);
             frame.createBufferStrategy(2);
@@ -1276,7 +1464,7 @@ public class Game extends JPanel {
             return frame;
         }
 
-        private void draw() {
+        private void draw(Map<String, Object> stats) {
             Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
             Graphics2D g = (Graphics2D) renderingBuffer.createGraphics();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -1294,18 +1482,30 @@ public class Game extends JPanel {
                     .filter(e -> !(e instanceof Camera) && e.isActive())
                     .sorted((e1, e2) -> e1.priority > e2.priority ? 1 : -1)
                     .forEach(e -> {
+
+                        if (Optional.ofNullable(camera).isPresent() && !e.isFixedToCamera()) {
+                            camera.preDraw(g);
+                        }
                         drawEntity(g, e);
+
+                        if (Optional.ofNullable(camera).isPresent() && !e.isFixedToCamera()) {
+                            camera.postDraw(g);
+                        }
                     });
             g.dispose();
 
             // draw buffer to window.
+            drawToWindow(stats);
+        }
+
+        private void drawToWindow(Map<String, Object> stats) {
             Graphics2D g2 = (Graphics2D) frame.getBufferStrategy().getDrawGraphics();
             g2.drawImage(
                     renderingBuffer,
                     0, 0, frame.getWidth(), frame.getHeight(),
                     0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight(),
                     null);
-            drawDebugLine(g2);
+            drawDebugLine(g2, stats);
             frame.getBufferStrategy().show();
         }
 
@@ -1341,18 +1541,36 @@ public class Game extends JPanel {
 
         }
 
-        private void drawDebugLine(Graphics2D g) {
+        private void drawDebugLine(Graphics2D g, Map<String, Object> stats) {
             Dimension windowSize = (Dimension) this.game.config.get(ConfigAttribute.WINDOW_SIZE);
             g.setColor(new Color(0.6f, 0.3f, 0.0f, 0.8f));
             g.fillRect(0, frame.getHeight() - 28, frame.getWidth(), 20);
             g.setFont(g.getFont().deriveFont(12.0f));
             g.setColor(Color.WHITE);
-            g.drawString(String.format("[ dbg:%d | nb:%d | pause: %s | cam:%s ]",
-                            game.getDebugLevel(),
-                            game.entities.size(),
-                            game.pause ? "on" : "off",
-                            camera != null ? camera.name : "none"),
+            g.drawString(
+                    prepareStatsString(stats, "[", "]"),
                     12, frame.getHeight() - 14);
+        }
+
+        public String prepareStatsString(Map<String, Object> attributes, String start, String end) {
+            return start + attributes.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(entry -> {
+                String value = "";
+                switch (entry.getValue().getClass().getSimpleName()) {
+                    case "Double", "double", "Float", "float" -> {
+                        value = String.format("%04.2f", entry.getValue());
+                    }
+                    case "Integer", "int" -> {
+                        value = String.format("%5d", entry.getValue());
+                    }
+                    default -> {
+                        value = entry.getValue().toString();
+                    }
+                }
+                return
+                        entry.getKey().substring(((String) entry.getKey().toString()).indexOf('_') + 1)
+                                + ":"
+                                + value;
+            }).collect(Collectors.joining(" | ")) + end;
         }
 
         private void drawDebugEntityInfo(Graphics2D g, Entity e) {
@@ -1367,13 +1585,19 @@ public class Game extends JPanel {
             g.setColor(Color.ORANGE);
             Stroke b = g.getStroke();
             g.setStroke(new BasicStroke(0.2f));
-            g.draw(e.bbox);
+            g.drawRect((int) x, (int) y, (int) e.width, (int) e.height);
             g.setStroke(b);
 
             // draw id and name
-            g.setColor(Color.YELLOW);
+            int offsetX = e.width > 100 ? 2 : 2 + (int) e.width;
+            g.setColor(Color.ORANGE);
             g.setFont(g.getFont().deriveFont(9.0f));
-            g.drawString(String.format("#%d:%s", e.id, e.name), (int) x, (int) y - 2);
+            int fh = g.getFontMetrics().getHeight();
+            int i = 0;
+            for (String info : e.getDebugInfo()) {
+                g.drawString(info, (int) (x + offsetX), (int) (y + i - 2));
+                i += (fh - 3);
+            }
         }
 
         public void update(long elapsed) {
@@ -1408,19 +1632,16 @@ public class Game extends JPanel {
             return this;
 
         }
+
+        public Camera getCamera() {
+            return camera;
+        }
     }
 
     public class PlayerInput implements Behavior<Entity> {
         @Override
         public void input(UserInput ui, Entity player) {
             boolean move = false;
-            if (player.currentAnimation.equals("player_jump")) {
-                player.currentAnimation = "player_idle";
-            } else if (player.currentAnimation.equals("player_jump") && player.contact != 0) {
-                player.currentAnimation = "player_idle";
-            } else {
-                player.currentAnimation = "player_idle";
-            }
             double step = (double) player.getAttribute("step", 0.2);
             double jump = (double) player.getAttribute("player_jump", -4.0 * 0.2);
             if (ui.getKey(KeyEvent.VK_UP)) {
@@ -1430,25 +1651,26 @@ public class Game extends JPanel {
             }
             if (ui.getKey(KeyEvent.VK_DOWN)) {
                 player.dy += step;
-                player.currentAnimation = "player_jump";
+                player.currentAnimation = "player_walk";
                 move = true;
             }
             if (ui.getKey(KeyEvent.VK_LEFT)) {
                 player.dx += -step;
+                player.currentAnimation = "player_walk";
                 move = true;
             }
             if (ui.getKey(KeyEvent.VK_RIGHT)) {
                 player.dx += step;
+                player.currentAnimation = "player_walk";
                 move = true;
             }
             if (!move) {
                 player.dx = (player.material.friction * player.dx);
                 player.dy = (player.material.friction * player.dy);
-
-                player.currentAnimation = "player_idle";
-            } else {
-                if (player.dx != 0) {
-                    player.currentAnimation = "player_walk";
+                if (player.dy > 0) {
+                    player.currentAnimation = "player_fall";
+                } else {
+                    player.currentAnimation = "player_idle";
                 }
             }
             player.direction = player.dx >= 0 ? 1 : -1;
@@ -1484,6 +1706,7 @@ public class Game extends JPanel {
                     + (Math.sin(life * radius1 * 0.5) * 4.0);
             e.setAttribute("life", life);
         }
+
     }
 
     private Configuration config;
@@ -1491,7 +1714,6 @@ public class Game extends JPanel {
     private UserInput userInput;
     private PhysicEngine physicEngine;
     private Renderer renderer;
-    private Animations animations;
     private boolean exit;
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
@@ -1515,8 +1737,6 @@ public class Game extends JPanel {
         userInput = new UserInput(this);
         renderer.setUserInput(userInput);
 
-        animations = new Animations();
-
         this.debug = (int) config.get(ConfigAttribute.DEBUG);
     }
 
@@ -1530,6 +1750,9 @@ public class Game extends JPanel {
     }
 
     private void create() {
+        // load animations from the description file
+        Animations animations = new Animations("/animations.properties");
+        // initialize PhysicEngine world
         World world = new World(
                 (Double) config.get(ConfigAttribute.PHYSIC_GRAVITY),
                 (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA));
@@ -1551,20 +1774,27 @@ public class Game extends JPanel {
                 .add("player_fall", animations.get("player_fall"))
                 .add("player_jump", animations.get("player_jump"));
 
-        Entity crystal = new Entity("crystal", 0, -28, Color.RED, Color.YELLOW)
+        // add a spinning crystal
+        Entity crystal = new Entity("crystal", 30, 30, Color.RED, Color.YELLOW)
                 .setSize(16, 16)
                 .add("crystal_spinning", animations.get("crystal_spinning").setSpeed(0.5))
+                .setPriority(2)
                 .setParentRelative(true)
-                .setPriority(2);
+                .add(new RandomGravitingBehavior(0, -24, 32));
         player.addChild(crystal);
         add(player);
         add(crystal);
 
+        // add a new particles animation to simulate rain
+        Particle rain = (Particle) new Particle("rain", 0, 0, 1000)
+                .add((Behavior) new RainBehavior(world, 3));
+        add(rain);
+
         Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
 
-        TextEntity score = (TextEntity) new TextEntity("score", vp.width - 80, 20)
+        TextEntity score = (TextEntity) new TextEntity("score", vp.width - 80, 30)
                 .setText("00000")
-                .setFont(getFont().deriveFont(16.0f))
+                .setFont(getFont().deriveFont(Font.BOLD, 20.0f))
                 .setTextColor(Color.WHITE)
                 .setShadowColor(Color.BLACK)
                 .setPriority(1)
@@ -1583,18 +1813,60 @@ public class Game extends JPanel {
         long endTime = startTime;
         long elapsed = 0;
         double timeFrame = 1000.0 / 60.0;
+
+        int updates = 0, frames = 0;
+        int fps = 0;
+        int ups = 0;
+
+        int internalTimeFrames = 0;
+        long internalTime = 0;
+
+        Map<String, Object> stats = new HashMap<>();
+
         while (!exit) {
             startTime = System.currentTimeMillis();
             elapsed = startTime - endTime;
+            // detect and process user input
             input();
+            // update all entities
             if (!pause) {
                 physicEngine.update(elapsed);
                 renderer.update(elapsed);
+                updates++;
             }
-            renderer.draw();
+
+            // prepare statistics
+            prepareStats(fps, ups, internalTime, stats);
+
+            // render all entities
+            renderer.draw(stats);
+
+            // compute some stats
+            frames++;
+            internalTimeFrames += elapsed;
+            internalTime += elapsed;
+            if (internalTimeFrames > 1000) {
+                ups = updates;
+                fps = frames;
+                frames = 0;
+                updates = 0;
+                internalTimeFrames = 0;
+            }
+
             waitForMs((int) (timeFrame - elapsed));
+
             endTime = startTime;
         }
+    }
+
+    private void prepareStats(int fps, int ups, long internalTime, Map<String, Object> stats) {
+        stats.put("dbg", getDebugLevel());
+        stats.put("obj", entities.size());
+        stats.put("cam", renderer.getCamera() != null ? renderer.getCamera().name : "none");
+        stats.put("fps", fps);
+        stats.put("ups", ups);
+        stats.put("time", internalTime);
+        stats.put("pause", isPause());
     }
 
     private void waitForMs(int ms) {
@@ -1647,5 +1919,6 @@ public class Game extends JPanel {
         }
         entities.put(entity.name, entity);
     }
+
 
 }
