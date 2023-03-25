@@ -808,6 +808,13 @@ public class Game extends JPanel {
         public long getCurrentIndex() {
             return index;
         }
+
+        public T setImage(BufferedImage image) {
+            this.image = image;
+            setSize(image.getWidth(), image.getHeight());
+            updateBBox();
+            return (T) this;
+        }
     }
 
 
@@ -820,6 +827,10 @@ public class Game extends JPanel {
     public class Entity extends AbstractEntity<Entity> {
         public Entity(String name, int x, int y, Color borderColor, Color fillColor) {
             super(name, x, y, borderColor, fillColor);
+        }
+
+        public Entity(String backImage) {
+            super(backImage, 0, 0, null, null);
         }
     }
 
@@ -936,6 +947,22 @@ public class Game extends JPanel {
             this.y += Math
                     .ceil((target.y + (target.height * 0.5) - ((viewport.getHeight()) * 0.5) - this.y)
                             * tween * Math.min(elapsed, 0.8));
+        }
+
+        /**
+         * Check if the {@link Entity} e is in the field of view (viewport) of the {@link Camera}.
+         *
+         * @param e the {@link Entity} to be field of view checked.
+         * @return true if {@link Entity} is in the FOV.
+         */
+        public boolean isInFOV(Entity e) {
+            if (e.isRelativeToParent()) {
+                return e.x + e.parent.x >= x && e.x + e.parent.x <= x + viewport.width
+                        && e.y + e.parent.y >= y && e.y + e.parent.y <= y + viewport.height;
+            } else {
+                return e.x >= x && e.x <= x + viewport.width
+                        && e.y >= y && e.y <= y + viewport.height;
+            }
         }
     }
 
@@ -1521,7 +1548,7 @@ public class Game extends JPanel {
             }
             // draw something
             this.game.entities.values().stream()
-                    .filter(e -> !(e instanceof Camera) && e.isActive())
+                    .filter(e -> !(e instanceof Camera) && e.isActive() && camera.isInFOV(e))
                     .sorted((e1, e2) -> e1.priority > e2.priority ? 1 : -1)
                     .forEach(e -> {
 
@@ -1800,6 +1827,13 @@ public class Game extends JPanel {
                 (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA));
         physicEngine.setWorld(world);
 
+        Entity background = (Entity) new Entity("backImage")
+                .setPosition(0, 0)
+                .setPhysicType(PhysicType.STATIC)
+                .setImage(resources.getImage("/images/backgrounds/forest.jpg"))
+                .setPriority(1);
+        add(background);
+
         // add the main player entity.
         Entity player = new Entity("player",
                 (int) ((world.playArea.getWidth() - 8) * 0.5),
@@ -1808,7 +1842,7 @@ public class Game extends JPanel {
                 Color.BLACK)
                 .setSize(32.0, 32.0)
                 .setMass(20.0)
-                .setPriority(1)
+                .setPriority(2)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
                 .add(new PlayerInput())
                 .add("player_idle", animations.get("player_idle").setSpeed(0.6))
@@ -1820,7 +1854,7 @@ public class Game extends JPanel {
         Entity crystal = new Entity("crystal", 30, 30, Color.RED, Color.YELLOW)
                 .setSize(16, 16)
                 .add("crystal_spinning", animations.get("crystal_spinning").setSpeed(0.5))
-                .setPriority(2)
+                .setPriority(3)
                 .setParentRelative(true)
                 .add(new RandomGravitingBehavior(0, -24, 32));
         player.addChild(crystal);
