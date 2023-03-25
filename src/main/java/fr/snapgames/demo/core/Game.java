@@ -811,6 +811,7 @@ public class Game extends JPanel {
 
         public T setImage(BufferedImage image) {
             this.image = image;
+            setType(EntityType.IMAGE);
             setSize(image.getWidth(), image.getHeight());
             updateBBox();
             return (T) this;
@@ -829,8 +830,12 @@ public class Game extends JPanel {
             super(name, x, y, borderColor, fillColor);
         }
 
-        public Entity(String backImage) {
-            super(backImage, 0, 0, null, null);
+        public Entity(String name) {
+            super(name, 0, 0, null, null);
+        }
+
+        public String toString() {
+            return "#" + this.getId() + ":" + this.getName();
         }
     }
 
@@ -956,13 +961,16 @@ public class Game extends JPanel {
          * @return true if {@link Entity} is in the FOV.
          */
         public boolean isInFOV(Entity e) {
-            if (e.isRelativeToParent()) {
+            if (e.isFixedToCamera() || e.getPhysicType().equals(PhysicType.STATIC)) {
+                return true;
+            } else if (e.isRelativeToParent()) {
                 return e.x + e.parent.x >= x && e.x + e.parent.x <= x + viewport.width
                         && e.y + e.parent.y >= y && e.y + e.parent.y <= y + viewport.height;
             } else {
                 return e.x >= x && e.x <= x + viewport.width
                         && e.y >= y && e.y <= y + viewport.height;
             }
+
         }
     }
 
@@ -1786,6 +1794,9 @@ public class Game extends JPanel {
     private boolean exit;
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
+
+    private Map<String, Camera> cameras = new HashMap<>();
+
     private int debug;
 
     public Game(String[] args, String pathToConfigPropsFile) {
@@ -1831,7 +1842,7 @@ public class Game extends JPanel {
                 .setPosition(0, 0)
                 .setPhysicType(PhysicType.STATIC)
                 .setImage(resources.getImage("/images/backgrounds/forest.jpg"))
-                .setPriority(1);
+                .setPriority(0);
         add(background);
 
         // add the main player entity.
@@ -1863,7 +1874,8 @@ public class Game extends JPanel {
 
         // add a new particles animation to simulate rain
         Particle rain = (Particle) new Particle("rain", 0, 0, 1000)
-                .add((Behavior) new RainBehavior(world, 3));
+                .add((Behavior) new RainBehavior(world, 3))
+                .setPriority(1);
         add(rain);
 
         Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
@@ -1873,7 +1885,7 @@ public class Game extends JPanel {
                 .setFont(getFont().deriveFont(Font.BOLD, 20.0f))
                 .setTextColor(Color.WHITE)
                 .setShadowColor(Color.BLACK)
-                .setPriority(1)
+                .setPriority(10)
                 .setFixedToCamera(true);
         add(score);
 
@@ -2003,6 +2015,7 @@ public class Game extends JPanel {
     private void add(Entity entity) {
         if (entity instanceof Camera) {
             renderer.setCamera((Camera) entity);
+            cameras.put(entity.getName(), (Camera) entity);
         }
         entities.put(entity.getName(), entity);
     }
