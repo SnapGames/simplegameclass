@@ -1,0 +1,8 @@
+kind: pipeline
+name: default
+
+steps:
+- name: build project
+  image: maven:3.9.0-jdk-19
+  commands:
+  - build.sh a
