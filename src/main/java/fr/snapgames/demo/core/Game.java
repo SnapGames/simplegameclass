@@ -580,8 +580,10 @@ public class Game extends JPanel {
         private String name = "default_" + id;
         protected int priority = 0;
         EntityType type = EntityType.RECTANGLE;
-        double x = 0, y = 0;
-        double dx = 0, dy = 0;
+
+        Vector2D position;
+
+        Vector2D velocity;
         double width = 16, height = 16;
 
         Shape bbox;
@@ -612,10 +614,8 @@ public class Game extends JPanel {
 
         public AbstractEntity(String name, int x, int y, Color borderColor, Color fillColor) {
             this.name = name;
-            this.x = x;
-            this.y = y;
-            this.dx = 0;
-            this.dy = 0;
+            this.position = new Vector2D(x, y);
+            this.velocity = new Vector2D(0, 0);
             this.borderColor = borderColor;
             this.fillColor = fillColor;
             updateBBox();
@@ -623,9 +623,9 @@ public class Game extends JPanel {
 
         void updateBBox() {
             if (type.equals(EntityType.ELLIPSE)) {
-                this.bbox = new Ellipse2D.Double(x, y, width, height);
+                this.bbox = new Ellipse2D.Double(position.x, position.y, width, height);
             } else {
-                this.bbox = new Rectangle2D.Double(x, y, width, height);
+                this.bbox = new Rectangle2D.Double(position.x, position.y, width, height);
             }
         }
 
@@ -743,12 +743,12 @@ public class Game extends JPanel {
             List<String> info = new ArrayList<>();
             info.add(String.format("#%d:%s", id, name));
             if (isRelativeToParent()) {
-                info.add(String.format("offset:%3.02f,%3.02f", x, y));
+                info.add(String.format("offset:%s", position));
             } else {
-                info.add(String.format("pos:%3.02f,%3.02f", x, y));
+                info.add(String.format("pos:%s", position));
             }
             info.add(String.format("sz :%3.02f,%3.02f", width, height));
-            info.add(String.format("spd:%3.02f,%3.02f", dx, dy));
+            info.add(String.format("spd:%s", velocity));
             info.add(String.format("anm:%s", currentAnimation));
             info.add(String.format("life:%s", duration > -1 ? live + "/" + duration : "n/a"));
             return info;
@@ -763,8 +763,8 @@ public class Game extends JPanel {
         }
 
         public T setPosition(double x, double y) {
-            this.x = x;
-            this.y = y;
+            this.position.x = x;
+            this.position.y = y;
             return (T) this;
         }
 
@@ -784,9 +784,15 @@ public class Game extends JPanel {
             return (T) this;
         }
 
+
+        public T setBorderColor(Color bc) {
+            this.borderColor = bc;
+            return (T) this;
+        }
+
         public T setVelocity(double dx, double dy) {
-            this.dx = dx;
-            this.dy = dy;
+            this.velocity.x = dx;
+            this.velocity.y = dy;
             return (T) this;
         }
 
@@ -843,6 +849,8 @@ public class Game extends JPanel {
         String text = "";
         Color textColor = Color.WHITE;
         Color shadowColor = Color.BLACK;
+        int shadowWidth = 0;
+        int borderWidth = 0;
         Font font;
 
         public TextEntity(String name, int x, int y) {
@@ -861,6 +869,16 @@ public class Game extends JPanel {
 
         public TextEntity setShadowColor(Color sc) {
             this.shadowColor = sc;
+            return this;
+        }
+
+        public TextEntity setShadowWidth(int sw) {
+            this.shadowWidth = sw;
+            return this;
+        }
+
+        public TextEntity setBorderWidth(int bw) {
+            this.borderWidth = bw;
             return this;
         }
 
@@ -935,22 +953,22 @@ public class Game extends JPanel {
         }
 
         public void preDraw(Graphics2D g) {
-            g.translate(-x, -y);
+            g.translate(-position.x, -position.y);
             g.rotate(-rotation);
         }
 
         public void postDraw(Graphics2D g) {
 
             g.rotate(rotation);
-            g.translate(x, y);
+            g.translate(position.x, position.y);
         }
 
         public void update(long elapsed) {
-            this.x += Math
-                    .ceil((target.x + (target.width * 0.5) - ((viewport.getWidth()) * 0.5) - this.x)
+            this.position.x += Math
+                    .ceil((target.position.x + (target.width * 0.5) - ((viewport.getWidth()) * 0.5) - this.position.x)
                             * tween * Math.min(elapsed, 0.8));
-            this.y += Math
-                    .ceil((target.y + (target.height * 0.5) - ((viewport.getHeight()) * 0.5) - this.y)
+            this.position.y += Math
+                    .ceil((target.position.y + (target.height * 0.5) - ((viewport.getHeight()) * 0.5) - this.position.y)
                             * tween * Math.min(elapsed, 0.8));
         }
 
@@ -964,13 +982,20 @@ public class Game extends JPanel {
             if (e.isFixedToCamera() || e.getPhysicType().equals(PhysicType.STATIC)) {
                 return true;
             } else if (e.isRelativeToParent()) {
-                return e.x + e.parent.x >= x && e.x + e.parent.x <= x + viewport.width
-                        && e.y + e.parent.y >= y && e.y + e.parent.y <= y + viewport.height;
+                return e.position.x + e.parent.position.x >= position.x && e.position.x + e.parent.position.x <= position.x + viewport.width
+                        && e.position.y + e.parent.position.y >= position.y && e.position.y + e.parent.position.y <= position.y + viewport.height;
             } else {
-                return e.x >= x && e.x <= x + viewport.width
-                        && e.y >= y && e.y <= y + viewport.height;
+                return e.position.x >= position.x && e.position.x <= position.x + viewport.width
+                        && e.position.y >= position.y && e.position.y <= position.y + viewport.height;
             }
 
+        }
+    }
+
+    public class Influencer extends Entity {
+
+        public Influencer(String name) {
+            super(name);
         }
     }
 
@@ -1186,6 +1211,137 @@ public class Game extends JPanel {
         }
     }
 
+    public class Vector2D {
+        public double x, y;
+
+        public Vector2D() {
+            x = 0.0f;
+            y = 0.0f;
+        }
+
+        /**
+         * @param x
+         * @param y
+         */
+        public Vector2D(double x, double y) {
+            super();
+            this.x = x;
+            this.y = y;
+        }
+
+        public Vector2D add(Vector2D v) {
+            return new Vector2D(x + v.x, y + v.y);
+        }
+
+        public Vector2D substract(Vector2D v1) {
+            return new Vector2D(x - v1.x, y - v1.y);
+        }
+
+        public Vector2D multiply(double f) {
+            return new Vector2D(x * f, y * f);
+        }
+
+        public double dot(Vector2D v1) {
+
+            return v1.x * y + v1.y * x;
+        }
+
+        public double length() {
+            return Math.sqrt(x * x + y * y);
+        }
+
+        public double distance(Vector2D v1) {
+            return substract(v1).length();
+        }
+
+        public Vector2D divide(double f) {
+            return new Vector2D(x / f, y / f);
+        }
+
+        public Vector2D normalize() {
+            return divide(length());
+        }
+
+        public Vector2D negate() {
+            return new Vector2D(-x, -y);
+        }
+
+        public double angle(Vector2D v1) {
+            double vDot = this.dot(v1) / (this.length() * v1.length());
+            if (vDot < -1.0)
+                vDot = -1.0;
+            if (vDot > 1.0)
+                vDot = 1.0;
+            return Math.acos(vDot);
+
+        }
+
+        public Vector2D addAll(List<Vector2D> forces) {
+            Vector2D sum = new Vector2D();
+            for (Vector2D f : forces) {
+                sum = sum.add(f);
+            }
+            return sum;
+        }
+
+        public String toString() {
+            return String.format("{x:%04.2f,y:%04.2f}", x, y);
+        }
+
+        public Vector2D maximize(double maxAccel) {
+            if (Math.abs(x) > maxAccel) {
+                x = Math.signum(x) * maxAccel;
+            }
+            if (Math.abs(y) > maxAccel) {
+                y = Math.signum(y) * maxAccel;
+            }
+            return this;
+        }
+
+        public Vector2D maximize(double maxX, double maxY) {
+            if (Math.abs(x) > maxX) {
+                x = Math.signum(x) * maxX;
+            }
+            if (Math.abs(y) > maxY) {
+                y = Math.signum(y) * maxY;
+            }
+            return this;
+        }
+
+        public Vector2D ceil(double ceilThreshod) {
+            x = Math.copySign((Math.abs(x) < ceilThreshod ? 0 : x), x);
+            y = Math.copySign((Math.abs(x) < ceilThreshod ? 0 : y), y);
+            return this;
+        }
+
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null) {
+                return false;
+            }
+            if (getClass() != o.getClass()) {
+                return false;
+            }
+            Vector2D vo = (Vector2D) o;
+            return Objects.equals(x, vo.x) && Objects.equals(y, vo.y);
+        }
+
+        public double getX() {
+            return x;
+        }
+
+        public double getY() {
+            return y;
+        }
+
+        public void setLocation(double x, double y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
     public interface Behavior<Entity> {
         public default void input(UserInput ui, Entity e) {
 
@@ -1227,7 +1383,7 @@ public class Game extends JPanel {
             }
 
             drops.stream().forEach(p -> {
-                if (p.y >= playArea.height - 1) {
+                if (p.position.y >= playArea.height - 1) {
                     p.setPosition(playArea.width * Math.random(),
                             0);
                 }
@@ -1236,16 +1392,66 @@ public class Game extends JPanel {
 
         @Override
         public Particle create(Particle parent) {
-            Particle pChild = (Particle) new Particle(parent.getName() + "_drop" + parent.getCurrentIndex())
+            Particle pChild = (Particle) new Particle(parent.getName() + "_drop_" + parent.getCurrentIndex())
+                    .setType(EntityType.LINE)
+                    .setPhysicType(PhysicType.DYNAMIC)
+                    .setSize(1, 1)
+                    .setPosition(
+                            playArea.width * Math.random(),
+                            0)
+                    .setBorderColor(Color.CYAN)
+                    .setMass(5000.01)
+                    .setVelocity(0.5 - Math.random() * 1.0, Math.random() * 0.009)
+                    .setRelativeToParent(false);
+            parent.addChild(pChild);
+            add(pChild);
+            return pChild;
+        }
+    }
+
+
+    private class SnowBehavior implements ParticleBehavior<Particle> {
+        private int batch = 10;
+        Dimension playArea;
+        List<Particle> drops = new ArrayList<>();
+
+        public SnowBehavior(World world, int batch) {
+            this.playArea = world.getPlayArea();
+            this.batch = batch;
+        }
+
+        @Override
+        public void update(long elapsed, Particle e) {
+            e.setSize(playArea.width, playArea.height);
+            e.setPhysicType(PhysicType.STATIC);
+            // add drops to the particles system
+            double i = 0.0;
+            double maxBatch = ((this.batch * 0.5) + (this.batch * Math.random() * 0.5));
+            while (i < maxBatch && drops.size() < e.getNbParticles()) {
+                drops.add(create(e));
+                i += 1.0;
+            }
+
+            drops.stream().forEach(p -> {
+                if (p.position.y >= playArea.height - 1) {
+                    p.setPosition(playArea.width * Math.random(),
+                            0);
+                }
+            });
+        }
+
+        @Override
+        public Particle create(Particle parent) {
+            Particle pChild = (Particle) new Particle(parent.getName() + "_spark_" + parent.getCurrentIndex())
                     .setType(EntityType.DOT)
                     .setPhysicType(PhysicType.DYNAMIC)
                     .setSize(1, 1)
                     .setPosition(
                             playArea.width * Math.random(),
                             0)
-                    .setFillColor(Color.CYAN)
-                    .setMass(1000.01)
-                    .setVelocity(0.5 - Math.random() * 1.0, Math.random() * 0.009)
+                    .setFillColor(Color.WHITE)
+                    .setMass(4000.01)
+                    .setVelocity(0.8 - (Math.random() * 1.6), Math.random() * 0.0009)
                     .setRelativeToParent(false);
             parent.addChild(pChild);
             add(pChild);
@@ -1259,16 +1465,15 @@ public class Game extends JPanel {
     }
 
     /**
+     * A simple home-grown {@link PhysicEngine} to process all entities and make the
+     * behavior near some realistic physic law (adapted and simplified ones.)
      * <p>
-     * A simple home grown {@link PhysicEngine} to process all entties and make the
-     * behave near some realistic physic law (adapted and simplified ones.)
-     * <p>
-     * It it base don the {@link Entity#x},{@link Entity#y} position,
-     * {@link Entity#dx},{@link Entity#dy} velocity attribtues and the
+     * It is based on the {@link Entity#position} position,
+     * {@link Entity#velocity} velocity attributes and the
      * {@link Entity#mass} from the
      * {@link Entity} class.
      * <p>
-     * It is using a {@link World} obnject defining {@link World#playArea} and
+     * It is using a {@link World} object defining {@link World#playArea} and
      * the internal {@link World#gravity} value.
      * <p>
      * Each Entity has its own {@link Material} characteristics, influencing
@@ -1309,24 +1514,24 @@ public class Game extends JPanel {
         private void constraintsEntity(Entity e) {
             Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
             e.contact = 0;
-            if (e.x <= 0) {
-                e.x = 0;
-                e.dx = -(e.material.elasticity * e.dx);
+            if (e.position.x <= 0) {
+                e.position.x = 0;
+                e.velocity.x = -(e.material.elasticity * e.velocity.x);
                 e.contact += 1;
             }
-            if (e.y <= 0) {
-                e.y = 0;
-                e.dy = -(e.material.elasticity * e.dy);
+            if (e.position.y <= 0) {
+                e.position.y = 0;
+                e.velocity.y = -(e.material.elasticity * e.velocity.y);
                 e.contact += 2;
             }
-            if (e.x + e.width > playArea.width) {
-                e.x = playArea.width - e.width;
-                e.dx = -(e.material.elasticity * e.dx);
+            if (e.position.x + e.width > playArea.width) {
+                e.position.x = playArea.width - e.width;
+                e.velocity.x = -(e.material.elasticity * e.velocity.x);
                 e.contact += 4;
             }
-            if (e.y + e.height > playArea.height) {
-                e.y = playArea.height - e.height;
-                e.dy = -(e.material.elasticity * e.dy);
+            if (e.position.y + e.height > playArea.height) {
+                e.position.y = playArea.height - e.height;
+                e.velocity.y = -(e.material.elasticity * e.velocity.y);
                 e.contact += 8;
             }
         }
@@ -1336,14 +1541,14 @@ public class Game extends JPanel {
             if (!e.isFixedToCamera() && e.getPhysicType() == PhysicType.DYNAMIC) {
                 if (!e.relativeToParent) {
                     if (e.mass != 0) {
-                        e.dy += world.gravity * 10.0 / e.mass;
+                        e.velocity.y += world.gravity * 10.0 / e.mass;
                     }
                     if (e.contact > 0) {
-                        e.dx *= e.material.friction;
-                        e.dy *= e.material.friction;
+                        e.velocity.y *= e.material.friction;
+                        e.velocity.y *= e.material.friction;
                     }
-                    e.x += e.dx * time;
-                    e.y += e.dy * time;
+                    e.position.x += e.velocity.x * time;
+                    e.position.y += e.velocity.y * time;
                 }
             }
             // update animation with next frame (if required)
@@ -1376,11 +1581,11 @@ public class Game extends JPanel {
 
         @Override
         public void draw(Renderer r, Graphics2D g, T e) {
-            double x = e.x;
-            double y = e.y;
+            double x = e.position.x;
+            double y = e.position.y;
             if (e.relativeToParent) {
-                x = e.parent.x + e.x;
-                y = e.parent.y + e.y;
+                x = e.parent.position.x + e.position.x;
+                y = e.parent.position.y + e.position.y;
             }
 
             switch (e.type) {
@@ -1394,7 +1599,10 @@ public class Game extends JPanel {
                 // draw a line
                 case LINE -> {
                     g.setColor(e.borderColor);
-                    g.drawRect((int) x, (int) y, (int) (e.x + e.dx), (int) (e.y + e.dy));
+                    Stroke bs = g.getStroke();
+                    g.setStroke(new BasicStroke((float) e.width));
+                    g.drawLine((int) x, (int) y, (int) (e.position.x + e.velocity.x), (int) (e.position.y + e.velocity.y));
+                    g.setStroke(bs);
                 }
                 // draw an ellipse
                 case ELLIPSE -> {
@@ -1477,14 +1685,37 @@ public class Game extends JPanel {
             }
 
             g.setFont(textEntity.font);
+
+            g.setColor(textEntity.borderColor);
+            for (int xb = 0; xb < textEntity.borderWidth; xb++) {
+                for (int yb = 0; yb < textEntity.borderWidth; yb++) {
+                    g.drawString(
+                            textEntity.text,
+                            (int) textEntity.position.x - xb, (int) textEntity.position.y - yb);
+                    g.drawString(
+                            textEntity.text,
+                            (int) textEntity.position.x + xb, (int) textEntity.position.y - yb);
+                    g.drawString(
+                            textEntity.text,
+                            (int) textEntity.position.x - xb, (int) textEntity.position.y + yb);
+                    g.drawString(
+                            textEntity.text,
+                            (int) textEntity.position.x + xb, (int) textEntity.position.y + yb);
+                }
+            }
+
             g.setColor(textEntity.shadowColor);
-            g.drawString(
-                    textEntity.text,
-                    (int) textEntity.x + 1, (int) textEntity.y + 1);
+            for (int sw = 0; sw < textEntity.shadowWidth; sw++) {
+                g.drawString(
+                        textEntity.text,
+                        (int) textEntity.position.x + sw, (int) textEntity.position.y + sw);
+            }
+
+
             g.setColor(textEntity.textColor);
             g.drawString(
                     textEntity.text,
-                    (int) textEntity.x, (int) textEntity.y);
+                    (int) textEntity.position.x, (int) textEntity.position.y);
 
             if (Optional.ofNullable(r.camera).isPresent() && !textEntity.isFixedToCamera()) {
                 r.camera.postDraw(g);
@@ -1651,11 +1882,11 @@ public class Game extends JPanel {
         }
 
         private void drawDebugEntityInfo(Graphics2D g, Entity e) {
-            double x = e.x;
-            double y = e.y;
+            double x = e.position.x;
+            double y = e.position.y;
             if (e.relativeToParent) {
-                x = e.parent.x + e.x;
-                y = e.parent.y + e.y;
+                x = e.parent.position.x + e.position.x;
+                y = e.parent.position.y + e.position.y;
             }
 
             // draw box
@@ -1722,35 +1953,35 @@ public class Game extends JPanel {
             double step = (double) player.getAttribute("step", 0.2);
             double jump = (double) player.getAttribute("player_jump", -4.0 * 0.2);
             if (ui.getKey(KeyEvent.VK_UP)) {
-                player.dy += jump;
+                player.velocity.y += jump;
                 player.currentAnimation = "player_jump";
                 move = true;
             }
             if (ui.getKey(KeyEvent.VK_DOWN)) {
-                player.dy += step;
+                player.velocity.y += step;
                 player.currentAnimation = "player_walk";
                 move = true;
             }
             if (ui.getKey(KeyEvent.VK_LEFT)) {
-                player.dx += -step;
+                player.velocity.x += -step;
                 player.currentAnimation = "player_walk";
                 move = true;
             }
             if (ui.getKey(KeyEvent.VK_RIGHT)) {
-                player.dx += step;
+                player.velocity.x += step;
                 player.currentAnimation = "player_walk";
                 move = true;
             }
             if (!move) {
-                player.dx = (player.material.friction * player.dx);
-                player.dy = (player.material.friction * player.dy);
-                if (player.dy > 0) {
+                player.velocity.x = (player.material.friction * player.velocity.x);
+                player.velocity.y = (player.material.friction * player.velocity.y);
+                if (player.velocity.y > 0) {
                     player.currentAnimation = "player_fall";
                 } else {
                     player.currentAnimation = "player_idle";
                 }
             }
-            player.direction = player.dx >= 0 ? 1 : -1;
+            player.direction = player.velocity.x >= 0 ? 1 : -1;
         }
     }
 
@@ -1777,8 +2008,8 @@ public class Game extends JPanel {
             if (life < 0) {
                 life = Math.PI * 2.0;
             }
-            e.x = x + (Math.cos(life) * radius1);
-            e.y = y + (Math.sin(life) * radius1)
+            e.position.x = x + (Math.cos(life) * radius1);
+            e.position.y = y + (Math.sin(life) * radius1)
                     + (Math.sin(life * radius1 * 0.25) * 8.0)
                     + (Math.sin(life * radius1 * 0.5) * 4.0);
             e.setAttribute("life", life);
@@ -1873,10 +2104,18 @@ public class Game extends JPanel {
         add(crystal);
 
         // add a new particles animation to simulate rain
-        Particle rain = (Particle) new Particle("rain", 0, 0, 1000)
-                .add((Behavior) new RainBehavior(world, 3))
+        Particle rain = (Particle) new Particle("rain", 0, 0, 2000)
+                //.add((Behavior) new RainBehavior(world, 2))
+                .add((Behavior) new RainBehavior(world, 2))
                 .setPriority(1);
         add(rain);
+
+        // add a new particles animation to simulate rain
+        Particle snow = (Particle) new Particle("snow", 0, 0, 4000)
+                //.add((Behavior) new RainBehavior(world, 2))
+                .add((Behavior) new SnowBehavior(world, 2))
+                .setPriority(1);
+        add(snow);
 
         Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
 
@@ -1884,7 +2123,10 @@ public class Game extends JPanel {
                 .setText("00000")
                 .setFont(getFont().deriveFont(Font.BOLD, 20.0f))
                 .setTextColor(Color.WHITE)
-                .setShadowColor(Color.BLACK)
+                .setShadowWidth(2)
+                .setShadowColor(new Color(0.0f, 0.0f, 0.0f, 0.6f))
+                .setBorderWidth(2)
+                .setBorderColor(new Color(0.6f, 0.6f, 0.6f, 0.6f))
                 .setPriority(10)
                 .setFixedToCamera(true);
         add(score);
