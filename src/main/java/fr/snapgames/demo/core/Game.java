@@ -689,8 +689,8 @@ public class Game extends JPanel {
             return (T) parent;
         }
 
-        public T add(Behavior<T> b) {
-            this.behaviors.add(b);
+        public T add(Behavior<?> b) {
+            this.behaviors.add((Behavior<T>) b);
             return (T) this;
         }
 
@@ -823,9 +823,15 @@ public class Game extends JPanel {
             return (T) this;
         }
 
-        public T setActivate(boolean active) {
+        public T setActive(boolean active) {
             this.active = active;
             return (T) this;
+        }
+
+        public void remove(Behavior<?> rb) {
+            if (behaviors.contains(rb)) {
+                behaviors.remove(rb);
+            }
         }
     }
 
@@ -1147,23 +1153,62 @@ public class Game extends JPanel {
         private final Game game;
         private boolean[] keys = new boolean[65636];
 
+        private List<UserActionListener> listeners = new ArrayList<>();
+
         public UserInput(Game game) {
             this.game = game;
         }
 
+        public void add(UserActionListener kl) {
+            listeners.add(kl);
+        }
+
         @Override
         public void keyTyped(KeyEvent e) {
-
+            listeners.forEach(k -> k.keyTyped(e));
         }
 
         @Override
         public void keyPressed(KeyEvent e) {
             keys[e.getKeyCode()] = true;
+            listeners.forEach(k -> k.keyPressed(e));
         }
 
         @Override
         public void keyReleased(KeyEvent e) {
             keys[e.getKeyCode()] = false;
+            listeners.forEach(k -> k.keyReleased(e));
+        }
+
+        private boolean getKey(int k) {
+            return keys[k];
+        }
+    }
+
+    public interface UserActionListener extends KeyListener {
+        default void keyTyped(KeyEvent e) {
+
+        }
+
+        default void keyPressed(KeyEvent e) {
+
+        }
+
+        default void keyReleased(KeyEvent e) {
+
+        }
+    }
+
+    public class GameActionListener implements UserActionListener {
+
+        private Game game;
+
+        public GameActionListener(Game g) {
+            this.game = g;
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
 
             if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
                 game.setExit(true);
@@ -1172,33 +1217,48 @@ public class Game extends JPanel {
                     || e.getKeyCode() == KeyEvent.VK_P) {
                 game.setPause(!game.isPause());
             }
-            if (e.getKeyCode() == KeyEvent.VK_D) {
-                game.setDebugLevel(game.getDebugLevel() + 1 < 5 ? game.getDebugLevel() + 1 : 0);
-            }
+        }
+    }
+
+    public class MeteoSwitcher implements UserActionListener {
+        @Override
+        public void keyReleased(KeyEvent e) {
             if (e.getKeyCode() == KeyEvent.VK_M) {
                 meteoValue = (meteoValue + 1 < 3 ? meteoValue + 1 : 0);
-                SnowBehavior sb = (SnowBehavior) behaviors.get("snowBehavior");
-                RainBehavior rb = (RainBehavior) behaviors.get("rainBehavior");
+                //SnowBehavior snow = (SnowBehavior) behaviors.get("snowBehavior");
+                RainBehavior rain = (RainBehavior) behaviors.get("rainBehavior");
+                Entity particles = entities.get("particles");
                 switch (meteoValue) {
                     case 0 -> {
-                        sb.stop();
-                        rb.stop();
+                        rain.stop();
+                        //snow.stop();
                     }
                     case 1 -> {
-                        sb.stop();
-                        rb.start();
+                        rain.start();
+                        //snow.stop();
                     }
                     case 2 -> {
-                        sb.start();
-                        rb.stop();
+                        rain.stop();
+                        //snow.start();
                     }
                 }
             }
+        }
+    }
 
+    public class DebugSwitcher implements UserActionListener {
+
+        private Game game;
+
+        public DebugSwitcher(Game g) {
+            this.game = g;
         }
 
-        private boolean getKey(int k) {
-            return keys[k];
+        @Override
+        public void keyReleased(KeyEvent e) {
+            if (e.getKeyCode() == KeyEvent.VK_D) {
+                game.setDebugLevel(game.getDebugLevel() + 1 < 5 ? game.getDebugLevel() + 1 : 0);
+            }
         }
     }
 
@@ -1392,6 +1452,8 @@ public class Game extends JPanel {
     }
 
     public interface ParticleBehavior<T extends Entity> extends Behavior<T> {
+        String getName();
+
         Particle create(T parent);
 
         void start();
@@ -1399,13 +1461,17 @@ public class Game extends JPanel {
         void stop();
     }
 
-
     private class RainBehavior implements ParticleBehavior<Particle> {
         private int batch = 10;
         Dimension playArea;
-
         boolean run = false;
         List<Particle> drops = new ArrayList<>();
+        private int nbActive = 0;
+
+        private Color dropColor = new Color(0.4f,0.7f,0.9f,0.5f);
+        public String getName() {
+            return "Rain";
+        }
 
         public RainBehavior(World world, int batch) {
             this.playArea = world.getPlayArea();
@@ -1420,35 +1486,57 @@ public class Game extends JPanel {
             double i = 0.0;
             if (run) {
                 double maxBatch = ((this.batch * 0.5) + (this.batch * Math.random() * 0.5));
-                while (i < maxBatch && drops.size() < e.getNbParticles()) {
-                    drops.add(create(e));
+                while (i < maxBatch && nbActive < e.getNbParticles()) {
+                    create(e);
                     i += 1.0;
+                    nbActive++;
                 }
+
             }
 
             drops.stream().forEach(p -> {
+                if (run && !p.isActive()) {
+                    p.setActive(true);
+                    p.setPosition(playArea.width * Math.random(),
+                            0);
+                }
                 if (p.position.y >= playArea.height - 1) {
                     p.setPosition(playArea.width * Math.random(),
                             0);
+                    p.setActive(run);
+                    if (!run) {
+                        nbActive--;
+                    }
                 }
             });
         }
 
         @Override
         public Particle create(Particle parent) {
-            Particle pChild = (Particle) new Particle(parent.getName() + "_drop_" + parent.getCurrentIndex())
-                    .setType(EntityType.LINE)
-                    .setPhysicType(PhysicType.DYNAMIC)
-                    .setSize(1, 1)
-                    .setPosition(
-                            playArea.width * Math.random(),
-                            0)
-                    .setBorderColor(Color.CYAN)
-                    .setMass(5000.01)
-                    .setVelocity(0.5 - Math.random() * 1.0, Math.random() * 0.009)
-                    .setRelativeToParent(false);
-            parent.addChild(pChild);
-            add(pChild);
+            Particle pChild = null;
+            if (drops.size() < parent.getNbParticles()) {
+                pChild = (Particle) new Particle(parent.getName() + "_drop_" + parent.getCurrentIndex())
+                        .setType(EntityType.LINE)
+                        .setPhysicType(PhysicType.DYNAMIC)
+                        .setSize(1, 1)
+                        .setPosition(
+                                playArea.width * Math.random(),
+                                0)
+                        .setBorderColor(dropColor)
+                        .setMass(1000.0)
+                        .setVelocity(0.5 - Math.random() * 1.0, Math.random() * 25.0)
+                        .setRelativeToParent(false)
+                        .setActive(true);
+                parent.addChild(pChild);
+                add(pChild);
+                drops.add(pChild);
+            } else {
+                Optional<Particle> existingParticle = drops.stream().filter(p -> !p.isActive()).findFirst();
+                if (existingParticle.isPresent()) {
+                    pChild = existingParticle.get();
+                    pChild.setActive(true);
+                }
+            }
             return pChild;
         }
 
@@ -1461,13 +1549,16 @@ public class Game extends JPanel {
         }
     }
 
-
     private class SnowBehavior implements ParticleBehavior<Particle> {
         private int batch = 10;
         Dimension playArea;
         List<Particle> drops = new ArrayList<>();
 
         boolean run = false;
+
+        public String getName() {
+            return "Snow";
+        }
 
         public SnowBehavior(World world, int batch) {
             this.playArea = world.getPlayArea();
@@ -1482,14 +1573,19 @@ public class Game extends JPanel {
             double i = 0.0;
             double maxBatch = ((this.batch * 0.5) + (this.batch * Math.random() * 0.5));
             while (i < maxBatch && drops.size() < e.getNbParticles()) {
-                drops.add(create(e));
+                Particle p = create(e);
+                p.setPosition(
+                        playArea.width * Math.random(),
+                        0);
+                drops.add(p);
                 i += 1.0;
-            }
 
+            }
             drops.stream().forEach(p -> {
                 if (p.position.y >= playArea.height - 1) {
                     p.setPosition(playArea.width * Math.random(),
                             0);
+                    p.setActive(run);
                 }
             });
         }
@@ -1500,9 +1596,6 @@ public class Game extends JPanel {
                     .setType(EntityType.DOT)
                     .setPhysicType(PhysicType.DYNAMIC)
                     .setSize(1, 1)
-                    .setPosition(
-                            playArea.width * Math.random(),
-                            0)
                     .setFillColor(Color.WHITE)
                     .setMass(4000.01)
                     .setVelocity(0.8 - (Math.random() * 1.6), Math.random() * 0.0009)
@@ -1605,7 +1698,7 @@ public class Game extends JPanel {
             if (!e.isFixedToCamera() && e.getPhysicType() == PhysicType.DYNAMIC) {
                 if (!e.relativeToParent) {
                     if (e.mass != 0) {
-                        e.velocity.y += world.gravity * 10.0 / e.mass;
+                        e.velocity.y += world.gravity * (0.5 * time) * 10.0 / e.mass;
                     }
                     if (e.contact > 0) {
                         e.velocity.y *= e.material.friction;
@@ -2173,21 +2266,19 @@ public class Game extends JPanel {
 
         RainBehavior rb = new RainBehavior(world, 2);
         add("rainBehavior", (Behavior<?>) rb);
-        // add a new particles animation to simulate rain
-        Particle rain = (Particle) new Particle("rain", 0, 0, 2000)
-                .add((Behavior) rb)
-                .setPriority(1)
-                .setActivate(false);
-        add(rain);
+        //SnowBehavior sb = new SnowBehavior(world, 2);
+        //add("snowBehavior", (Behavior<?>) sb);
 
         // add a new particles animation to simulate rain
-        SnowBehavior sb = new SnowBehavior(world, 2);
-        add("snowBehavior", (Behavior<?>) sb);
-        Particle snow = (Particle) new Particle("snow", 0, 0, 4000)
-                .add((Behavior) sb)
+        Particle particles = (Particle) new Particle("particles", 0, 0, 1000)
                 .setPriority(1)
-                .setActivate(false);
-        add(snow);
+                //.add(sb)
+                .add(rb)
+                .setActive(true);
+        add(particles);
+
+        // add a new particles animation to simulate rain
+
 
         Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
 
@@ -2208,6 +2299,13 @@ public class Game extends JPanel {
                 .setTween(0.04)
                 .setViewport(vp);
         add(cam);
+
+        // default game action(escape & pause)
+        userInput.add(new GameActionListener(this));
+        // switch between meteo particle animations
+        userInput.add(new MeteoSwitcher());
+        // switch trhogh debug mode levels.
+        userInput.add(new DebugSwitcher(this));
     }
 
     private void loop() {
