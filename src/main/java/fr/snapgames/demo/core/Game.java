@@ -1,21 +1,21 @@
 package fr.snapgames.demo.core;
 
-import java.awt.*;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.Rectangle2D;
-import java.io.*;
-import java.net.URISyntaxException;
-import java.security.CodeSource;
-import java.util.*;
-
 import javax.imageio.ImageIO;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.security.CodeSource;
 import java.util.List;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -822,6 +822,11 @@ public class Game extends JPanel {
             updateBBox();
             return (T) this;
         }
+
+        public T setActivate(boolean active) {
+            this.active = active;
+            return (T) this;
+        }
     }
 
 
@@ -1170,6 +1175,25 @@ public class Game extends JPanel {
             if (e.getKeyCode() == KeyEvent.VK_D) {
                 game.setDebugLevel(game.getDebugLevel() + 1 < 5 ? game.getDebugLevel() + 1 : 0);
             }
+            if (e.getKeyCode() == KeyEvent.VK_M) {
+                meteoValue = (meteoValue + 1 < 3 ? meteoValue + 1 : 0);
+                SnowBehavior sb = (SnowBehavior) behaviors.get("snowBehavior");
+                RainBehavior rb = (RainBehavior) behaviors.get("rainBehavior");
+                switch (meteoValue) {
+                    case 0 -> {
+                        sb.stop();
+                        rb.stop();
+                    }
+                    case 1 -> {
+                        sb.stop();
+                        rb.start();
+                    }
+                    case 2 -> {
+                        sb.start();
+                        rb.stop();
+                    }
+                }
+            }
 
         }
 
@@ -1182,6 +1206,8 @@ public class Game extends JPanel {
         double gravity = 0.981;
         Dimension playArea;
 
+        List<Influencer> influencers = new ArrayList<>();
+
         public World(double g, Dimension pa) {
             this.gravity = g;
             this.playArea = pa;
@@ -1193,6 +1219,15 @@ public class Game extends JPanel {
 
         public double getGravity() {
             return this.gravity;
+        }
+
+        public World add(Influencer i) {
+            this.influencers.add(i);
+            return this;
+        }
+
+        public List<Influencer> getInfluencers() {
+            return influencers;
         }
     }
 
@@ -1358,11 +1393,18 @@ public class Game extends JPanel {
 
     public interface ParticleBehavior<T extends Entity> extends Behavior<T> {
         Particle create(T parent);
+
+        void start();
+
+        void stop();
     }
+
 
     private class RainBehavior implements ParticleBehavior<Particle> {
         private int batch = 10;
         Dimension playArea;
+
+        boolean run = false;
         List<Particle> drops = new ArrayList<>();
 
         public RainBehavior(World world, int batch) {
@@ -1376,10 +1418,12 @@ public class Game extends JPanel {
             e.setPhysicType(PhysicType.STATIC);
             // add drops to the particles system
             double i = 0.0;
-            double maxBatch = ((this.batch * 0.5) + (this.batch * Math.random() * 0.5));
-            while (i < maxBatch && drops.size() < e.getNbParticles()) {
-                drops.add(create(e));
-                i += 1.0;
+            if (run) {
+                double maxBatch = ((this.batch * 0.5) + (this.batch * Math.random() * 0.5));
+                while (i < maxBatch && drops.size() < e.getNbParticles()) {
+                    drops.add(create(e));
+                    i += 1.0;
+                }
             }
 
             drops.stream().forEach(p -> {
@@ -1407,6 +1451,14 @@ public class Game extends JPanel {
             add(pChild);
             return pChild;
         }
+
+        public void start() {
+            this.run = true;
+        }
+
+        public void stop() {
+            this.run = false;
+        }
     }
 
 
@@ -1414,6 +1466,8 @@ public class Game extends JPanel {
         private int batch = 10;
         Dimension playArea;
         List<Particle> drops = new ArrayList<>();
+
+        boolean run = false;
 
         public SnowBehavior(World world, int batch) {
             this.playArea = world.getPlayArea();
@@ -1456,6 +1510,16 @@ public class Game extends JPanel {
             parent.addChild(pChild);
             add(pChild);
             return pChild;
+        }
+
+        @Override
+        public void start() {
+            this.run = true;
+        }
+
+        @Override
+        public void stop() {
+            this.run = false;
         }
     }
 
@@ -2028,7 +2092,10 @@ public class Game extends JPanel {
 
     private Map<String, Camera> cameras = new HashMap<>();
 
+    private Map<String, Behavior<?>> behaviors = new HashMap<>();
+
     private int debug;
+    private int meteoValue = 0;
 
     public Game(String[] args, String pathToConfigPropsFile) {
         config = new Configuration(pathToConfigPropsFile, args);
@@ -2103,18 +2170,23 @@ public class Game extends JPanel {
         add(player);
         add(crystal);
 
+
+        RainBehavior rb = new RainBehavior(world, 2);
+        add("rainBehavior", (Behavior<?>) rb);
         // add a new particles animation to simulate rain
         Particle rain = (Particle) new Particle("rain", 0, 0, 2000)
-                //.add((Behavior) new RainBehavior(world, 2))
-                .add((Behavior) new RainBehavior(world, 2))
-                .setPriority(1);
+                .add((Behavior) rb)
+                .setPriority(1)
+                .setActivate(false);
         add(rain);
 
         // add a new particles animation to simulate rain
+        SnowBehavior sb = new SnowBehavior(world, 2);
+        add("snowBehavior", (Behavior<?>) sb);
         Particle snow = (Particle) new Particle("snow", 0, 0, 4000)
-                //.add((Behavior) new RainBehavior(world, 2))
-                .add((Behavior) new SnowBehavior(world, 2))
-                .setPriority(1);
+                .add((Behavior) sb)
+                .setPriority(1)
+                .setActivate(false);
         add(snow);
 
         Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
@@ -2196,6 +2268,8 @@ public class Game extends JPanel {
         stats.put("fps", fps);
         stats.put("ups", ups);
         stats.put("time", formatTime(internalTime));
+        stats.put("meteo", meteoValue);
+
         stats.put("pause", isPause());
     }
 
@@ -2262,5 +2336,12 @@ public class Game extends JPanel {
         entities.put(entity.getName(), entity);
     }
 
+    private void add(String key, Behavior<?> b) {
+        this.behaviors.put(key, b);
+    }
+
+    private Behavior<?> get(String key) {
+        return this.behaviors.get(key);
+    }
 
 }
