@@ -170,7 +170,7 @@ public class Game extends JPanel {
         }
 
         public Configuration() {
-            this("/config.properties", new String[]{});
+            this("/config.properties", new String[] {});
         }
 
         /**
@@ -214,7 +214,7 @@ public class Game extends JPanel {
          */
         private int extractConfigValuesFromProps(String configFile, int status, Properties props) {
             for (Map.Entry<Object, Object> prop : props.entrySet()) {
-                String[] kv = new String[]{(String) prop.getKey(), (String) prop.getValue()};
+                String[] kv = new String[] { (String) prop.getKey(), (String) prop.getValue() };
                 if (ifArgumentFoundSetToValue(kv) == null) {
                     System.err.printf("WARNING: file=%s : Unknown property '%s' with value '%s'%n",
                             configFile,
@@ -292,7 +292,7 @@ public class Game extends JPanel {
             jarDir = jarFile.getParentFile().getPath();
             externalConfigFile = jarDir + File.separator + "my-"
                     + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1)
-                    : configFile);
+                            : configFile);
             return externalConfigFile;
         }
 
@@ -388,7 +388,6 @@ public class Game extends JPanel {
          * @return true if updated or false if unknown.
          */
         public ConfigAttribute ifArgumentFoundSetToValue(String[] kv) {
-            boolean found = false;
             for (ConfigAttribute ca : attributes) {
                 String[] argumentNames = ca.getArgName().split(",");
                 if (Arrays.stream(argumentNames)
@@ -409,7 +408,7 @@ public class Game extends JPanel {
          *
          * @param ca the {@link ConfigAttribute} you want to retrieve the value for.
          * @return the current value of the {@link ConfigAttribute} from the
-         * {@link Configuration#configurationValues} map.
+         *         {@link Configuration#configurationValues} map.
          */
         public Object get(ConfigAttribute ca) {
             return configurationValues.get(ca);
@@ -549,6 +548,7 @@ public class Game extends JPanel {
      * A Node interface to define child/prent hierarchy structure.
      * <p>
      * Here is an implementation with T=Entity
+     * 
      * <pre>
      *     Object&lt;Entity&gt;
      *     |__ Child1&lt;Entity&gt;
@@ -574,6 +574,35 @@ public class Game extends JPanel {
         List<T> getChild();
     }
 
+    /**
+     * {@link AbstractEntity} is the master {@link Entity} Object wich all Enenti's
+     * will inherit
+     * from, by defining all the intarenal behavior and processing for an entity.
+     * 
+     * <p>
+     * To be used, an inheritant must specify its type to the {@link AbstractEntity}
+     * to get the right returned type:
+     * 
+     * 
+     * <p>
+     * The MyEntity type will override any of the existing methods from
+     * AbstractEntity,
+     * and must have a Constructor call the parent one, here a simplified one with
+     * entity's name only.
+     * 
+     * <pre>
+     * public class MyEntity extends AbstractEntyti<MyEntity> {
+     * 
+     *     public MyEntity(String name) {
+     *         super(name, 0, 0, null, null);
+     *     }
+     *     // ...
+     * }
+     * </pre>
+     * 
+     * @author Frédéric Delorme
+     * @since 1.0.1
+     */
     public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
         private static long index = 0;
         private long id = ++index;
@@ -673,7 +702,6 @@ public class Game extends JPanel {
             this.height = h;
             return (T) this;
         }
-
 
         public List<T> getChild() {
             return child;
@@ -817,7 +845,6 @@ public class Game extends JPanel {
         }
     }
 
-
     /**
      * Core Entity for all managed object on screen.
      *
@@ -834,6 +861,25 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * The {@link TextEntity} will be sed to display some text on screen.
+     * 
+     * 5 new atribtues are provided:
+     * 
+     * <ul>
+     * <li><code>nbParticles</code> the max number of child particles attached to
+     * that {@link Particle} entity,</li>
+     * <li><code>text</code> the text to be displayed,</li>
+     * <li><code>textColor</code> the color to render text</li>
+     * <li><code>shadowColor</code> the color for shadowing text</li>
+     * <li><code>font</code> the {@link Font} to be used to draw text.</li>
+     * </ul>
+     * 
+     * To create a {@link Particle}:
+     * 
+     * <pre>
+     * </pre>
+     */
     public class TextEntity extends Entity {
         String text = "";
         Color textColor = Color.WHITE;
@@ -865,6 +911,16 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * A new Entity to display a bunch of particles.
+     * 
+     * <p>
+     * The {@link Particle} entity is a group of child entity sharing the same
+     * behavior.
+     * And the {@link Particle} behavior is a new flavor of the {@link Behavior}'s
+     * one adding new methods: the {@link ParticleBehavior}.
+     * 
+     */
     public class Particle extends Entity {
         int nbParticles = 0;
 
@@ -881,16 +937,10 @@ public class Game extends JPanel {
             this.nbParticles = nbParticles;
         }
 
-        public void createParticle(Game g, ParticleBehavior pb) {
+        public void createParticle(Game g, ParticleBehavior<Particle> pb) {
             if (Optional.ofNullable(pb).isPresent()) {
                 addChild(pb.create(this));
             }
-        }
-
-        @Override
-        public void update(long elapsed) {
-            super.update(elapsed);
-
         }
 
         public int getNbParticles() {
@@ -898,6 +948,25 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * The {@link Camera} is a specific {@link Entity} that is used to let the
+     * screen view follow a defined target.
+     * As such a Caemra in the a movie, it will follow a target with smooth moves.
+     * 
+     * Defining a camera is notheting than this sample of code:
+     * 
+     * <pre>
+     * public void create(){
+     *    //...
+     *    Camera cam = new Camera("myCam")
+     *         .setTarget(player)
+     *         .setTween(0.04)
+     *         .setViewport(vp);
+     *    add(cam);  
+     *    //...
+     * }
+     * </pre>
+     */
     public class Camera extends Entity {
         Entity target;
         double tween;
@@ -950,7 +1019,8 @@ public class Game extends JPanel {
         }
 
         /**
-         * Check if the {@link Entity} e is in the field of view (viewport) of the {@link Camera}.
+         * Check if the {@link Entity} e is in the field of view (viewport) of the
+         * {@link Camera}.
          *
          * @param e the {@link Entity} to be field of view checked.
          * @return true if {@link Entity} is in the FOV.
@@ -1425,7 +1495,7 @@ public class Game extends JPanel {
                     }
                 }
                 case NONE -> {
-                    //Nothing to do
+                    // Nothing to do
                 }
                 default -> {
                     System.err.printf("ERROR: Unable to draw the entity %s%n", e.getName());
@@ -1635,10 +1705,9 @@ public class Game extends JPanel {
                         value = entry.getValue().toString();
                     }
                 }
-                return
-                        entry.getKey().substring(((String) entry.getKey().toString()).indexOf('_') + 1)
-                                + ":"
-                                + value;
+                return entry.getKey().substring(((String) entry.getKey().toString()).indexOf('_') + 1)
+                        + ":"
+                        + value;
             }).collect(Collectors.joining(" | ")) + end;
         }
 
@@ -2006,6 +2075,5 @@ public class Game extends JPanel {
         }
         entities.put(entity.getName(), entity);
     }
-
 
 }
