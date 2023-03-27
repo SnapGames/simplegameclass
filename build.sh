@@ -1,12 +1,19 @@
 #!/bin/bash
 #!/bin/sh
 cd ./
-export PROGRAM_NAME=simplegameclass
-export PROGRAM_VERSION=1.0
-export PROGRAM_TITLE=SimpleGameClass
+ENV=build
+
+function prop {
+#grep "${1}" env/${ENV}.properties|cut -d'=' -f2
+ grep "${1}" ${ENV}.properties|cut -d'=' -f2
+}
+
+export PROGRAM_NAME=$(prop project.name)
+export PROGRAM_VERSION=$(prop project.version)
+export PROGRAM_TITLE=$(prop project.title)
 export MAIN_CLASS=fr.snapgames.demo.core.Game
-export VENDOR_NAME=SnapGames
-export AUTHOR_NAME="fredericDOTdelormeATgmailDOTcom"
+export VENDOR_NAME=$(prop project.author.name)
+export AUTHOR_NAME=$(prop project.author.email)
 
 # A dirty list of package to be build (TODO add automation on package detection)
 export JAVADOC_CLASSPATH="fr.snapgames.demo.core"
@@ -97,6 +104,8 @@ function checkCodeStyleQA() {
   echo "check code quality against rules $CHECK_RULES"
   echo "> explore sources at : $SRC"
   find $SRC/main -name '*.java' >$TARGET/sources.lst
+  java $JAR_OPTS -cp "$LIB_CHECKSTYLES:$CLASSES:." \
+    -jar $LIB_CHECKSTYLES \
   java $JAR_OPTS -cp "$LIB_CHECKSTYLES:$CLASSES:." \
     -jar $LIB_CHECKSTYLES \
     -c $CHECK_RULES_FILE \
@@ -203,8 +212,6 @@ function sign() {
 function help() {
   echo "$0 command line usage :"
   echo "---------------------------"
-  echo "> $0 [options]"
-  echo "where:"
   echo " - a|A|all     : perform all following operations"
   echo " - c|C|compile : compile all sources project"
   echo " - d|D|doc     : generate javadoc for project"
