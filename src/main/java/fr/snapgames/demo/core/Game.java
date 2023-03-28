@@ -599,10 +599,10 @@ public class Game extends JPanel {
 
         T parent;
         private List<T> child = new ArrayList<>();
+        Map<String, Object> attributes = new HashMap<>();
 
         Map<String, Animation> animations = new HashMap<>();
         String currentAnimation = "";
-        Map<String, Object> attributes = new HashMap<>();
 
         List<Behavior<T>> behaviors = new ArrayList<>();
         private boolean fixedToCamera;
@@ -1462,53 +1462,53 @@ public class Game extends JPanel {
     }
 
     private class RainBehavior implements ParticleBehavior<Particle> {
+        private final double speed;
         private int batch = 10;
         Dimension playArea;
         boolean run = false;
         List<Particle> drops = new ArrayList<>();
-        private int nbActive = 0;
+        private long nbActive = 0;
 
-        private Color dropColor = new Color(0.4f,0.7f,0.9f,0.5f);
+        private long dropTime = 0;
+
+        private long internalTime = 0;
+
+        private Color dropColor = new Color(0.4f, 0.7f, 0.9f, 0.5f);
+
         public String getName() {
             return "Rain";
         }
 
-        public RainBehavior(World world, int batch) {
+        /**
+         * Generate batch rain drop every dropTime millisecond.
+         *
+         * @param world    parent World object to define PLay area
+         * @param batch    number of drop to be generated on the dropTime delay.
+         * @param dropTime the delay in the batch rain drops must be generated.
+         */
+        public RainBehavior(World world, int batch, int dropTime, double dropSpeed) {
             this.playArea = world.getPlayArea();
             this.batch = batch;
+            this.dropTime = dropTime;
+            this.speed = dropSpeed;
         }
 
         @Override
         public void update(long elapsed, Particle e) {
             e.setSize(playArea.width, playArea.height);
             e.setPhysicType(PhysicType.STATIC);
+            internalTime += elapsed;
             // add drops to the particles system
             double i = 0.0;
-            if (run) {
+            if (run && internalTime > dropTime) {
                 double maxBatch = ((this.batch * 0.5) + (this.batch * Math.random() * 0.5));
                 while (i < maxBatch && nbActive < e.getNbParticles()) {
                     create(e);
                     i += 1.0;
-                    nbActive++;
                 }
-
+                nbActive = drops.stream().filter(p -> p.isActive()).count();
+                internalTime = 0;
             }
-
-            drops.stream().forEach(p -> {
-                if (run && !p.isActive()) {
-                    p.setActive(true);
-                    p.setPosition(playArea.width * Math.random(),
-                            0);
-                }
-                if (p.position.y >= playArea.height - 1) {
-                    p.setPosition(playArea.width * Math.random(),
-                            0);
-                    p.setActive(run);
-                    if (!run) {
-                        nbActive--;
-                    }
-                }
-            });
         }
 
         @Override
@@ -1524,8 +1524,9 @@ public class Game extends JPanel {
                                 0)
                         .setBorderColor(dropColor)
                         .setMass(1000.0)
-                        .setVelocity(0.5 - Math.random() * 1.0, Math.random() * 25.0)
+                        .setVelocity(0.5 - Math.random() * 1.0, speed)
                         .setRelativeToParent(false)
+                        .add(new RainDropBehavior(playArea))
                         .setActive(true);
                 parent.addChild(pChild);
                 add(pChild);
@@ -1546,6 +1547,23 @@ public class Game extends JPanel {
 
         public void stop() {
             this.run = false;
+        }
+    }
+
+    private class RainDropBehavior implements Behavior<Particle> {
+        private final Dimension playArea;
+
+        public RainDropBehavior(Dimension playArea) {
+            this.playArea = playArea;
+        }
+
+        @Override
+        public void update(long elapsed, Particle p) {
+            if (p.position.y >= playArea.height - 1) {
+                p.setPosition(playArea.width * Math.random(),
+                        0);
+                p.setActive(false);
+            }
         }
     }
 
@@ -1698,7 +1716,7 @@ public class Game extends JPanel {
             if (!e.isFixedToCamera() && e.getPhysicType() == PhysicType.DYNAMIC) {
                 if (!e.relativeToParent) {
                     if (e.mass != 0) {
-                        e.velocity.y += world.gravity * (0.5 * time) * 10.0 / e.mass;
+                        e.velocity.y = world.gravity * (elapsed * 0.5) * 10.0 / e.mass;
                     }
                     if (e.contact > 0) {
                         e.velocity.y *= e.material.friction;
@@ -2264,13 +2282,13 @@ public class Game extends JPanel {
         add(crystal);
 
 
-        RainBehavior rb = new RainBehavior(world, 2);
+        RainBehavior rb = new RainBehavior(world, 20, 100, 20);
         add("rainBehavior", (Behavior<?>) rb);
         //SnowBehavior sb = new SnowBehavior(world, 2);
         //add("snowBehavior", (Behavior<?>) sb);
 
         // add a new particles animation to simulate rain
-        Particle particles = (Particle) new Particle("particles", 0, 0, 1000)
+        Particle particles = (Particle) new Particle("particles", 0, 0, 2000)
                 .setPriority(1)
                 //.add(sb)
                 .add(rb)
