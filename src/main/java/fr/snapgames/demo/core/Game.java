@@ -1110,6 +1110,16 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * A future object to be used into the PhysicEngine to define new constrains,
+     * to apply effects on Entity intersecting with the Influencer area.
+     * <p>
+     * This {@link Influencer} would be able to  apply new force (magnetic, wind, etc...) on the
+     * {@link Entity}, and dynamically change the default {@link Entity}'s {@link Material}.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.2
+     */
     public class Influencer extends Entity {
 
         public Influencer(String name) {
@@ -1117,6 +1127,18 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * This {@link Animation} object set the Frames as a sprite animation.
+     * <p>
+     * It contains 2 main buffers; image and time.
+     * The {@link Animation} can be played in an infinite loop, and can end at a defined point.
+     * This Animation object can be attributed to an {@link Entity}. the corresponding frame
+     * will be used in place of the {@link Entity#image}
+     * </p>
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.1
+     */
     public class Animation {
         BufferedImage[] frames;
         int index = 0;
@@ -1174,13 +1196,29 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * The {@link Animations} class is a utility to load a bunch of animation defined into a properties file
+     * and store in a cache corresponding {@link Animation} instances.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.1
+     */
     public class Animations {
         Map<String, Animation> animations = new HashMap<>();
 
+        /**
+         * Initialize a bunch of animation fom the animationFile properties.
+         *
+         * @param animationFile the properties file defining all the animations with their frames and times.
+         * @see Animations#loadFromFile(String)
+         */
         public Animations(String animationFile) {
             loadFromFile(animationFile);
         }
 
+        /**
+         * A default constructor without any specific actions.
+         */
         public Animations() {
         }
 
@@ -1230,6 +1268,14 @@ public class Game extends JPanel {
 
         }
 
+        /**
+         * Create one {@link Animation} instance according to the prepared data.
+         *
+         * @param imageSrcPath image file where to extract frames
+         * @param loop         set the looping attribute for the {@link Animation} instance
+         * @param framesDef    a list of frame definition <code>"x,y,w,h,t"</code>.
+         * @return the corresponding initialized {@link Animation} instance.
+         */
         public Animation loadAnimation(String imageSrcPath, boolean loop, String[] framesDef) {
             BufferedImage[] imgs = new BufferedImage[framesDef.length];
             long[] frameTimes = new long[framesDef.length];
@@ -1250,6 +1296,12 @@ public class Game extends JPanel {
             return new Game.Animation(imgs, frameTimes).setLoop(loop);
         }
 
+        /**
+         * Retrieve a specific animation on its name from tha Animations cache.
+         *
+         * @param animKey the name of the animation to be retrieved.
+         * @return the corresponding initialized {@link Animation} instance.
+         */
         public Animation get(String animKey) {
             return animations.get(animKey);
         }
@@ -1369,6 +1421,14 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * The {@link World} object defining the limit of the {@link PhysicEngine} universe here the {@link Entity} will evolve.
+     * <p>
+     * It will contain a default a gravity, and a play area where Entity moves.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.1
+     */
     public class World {
         private double gravity = 0.981;
         private Dimension playArea;
@@ -1398,6 +1458,16 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * The {@link Material} class is defining some physic attributes to be applied on some {@link Entity},
+     * and used in the {@link PhysicEngine} Newton's laws processing to move {@link Entity}.
+     * <p>
+     * It is used to define common physic attributes like {@link Material#elasticity}, {@link Material#density}
+     * and {@link Material#friction}.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.0
+     */
     public class Material {
 
         String name;
@@ -1413,6 +1483,9 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * Vector2D
+     */
     public class Vector2D {
         public double x, y;
 
@@ -1568,6 +1641,14 @@ public class Game extends JPanel {
         void stop();
     }
 
+    /**
+     * The {@link RainBehavior} is {@link ParticleBehavior} implementation to simulate Rain.
+     * rain drop will fall from sky (upper play area) to ground (lower play area).
+     * Rain drops are DOT with a blue half-transparent color.
+     *
+     * @author Frédérc Delorme
+     * @since 1.0.1
+     */
     public class RainBehavior implements ParticleBehavior<Particle> {
         private final double speed;
         private int batch = 10;
@@ -1657,7 +1738,15 @@ public class Game extends JPanel {
         }
     }
 
-    private class RainDropBehavior implements Behavior<Particle> {
+    /**
+     * This {@link ParticleBehavior} implements the Falling behavior of a rain drop.
+     * Teh Drop will fall from sky to ground.
+     * As soon this drop reach the ground, it is deactivated.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.1
+     */
+    public class RainDropBehavior implements Behavior<Particle> {
         private final Dimension playArea;
 
         public RainDropBehavior(Dimension playArea) {
@@ -1674,7 +1763,14 @@ public class Game extends JPanel {
         }
     }
 
-    private class SnowBehavior implements ParticleBehavior<Particle> {
+    /**
+     * This {@link ParticleBehavior} implements a Snow simulations.
+     * Snowflakes (DOT) are falling from sky in a continuous way.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.1
+     */
+    public class SnowBehavior implements ParticleBehavior<Particle> {
         private int batch = 10;
         Dimension playArea;
         List<Particle> drops = new ArrayList<>();
@@ -1741,8 +1837,25 @@ public class Game extends JPanel {
         }
     }
 
+    /**
+     * {@link PhysicType} for any {@link Entity}. It defines the Physic Computation applied to the
+     * {@link Entity} according to the fact it os static of dynamic.
+     *
+     * @author Frédéric Delorme
+     * @see PhysicEngine
+     * @see Entity#physicType
+     * @since 1.0.1
+     */
     public enum PhysicType {
+        /**
+         * A STATIC {@link Entity} will not be updated by the {@link PhysicEngine} computation,
+         * only the entity's behaviors will be updated.
+         */
         STATIC,
+        /**
+         * a DYNAMIC {@link Entity} will be impacted by the simplified Newton's laws
+         * computation performed by the {@link PhysicEngine}.
+         */
         DYNAMIC
     }
 
@@ -1777,10 +1890,26 @@ public class Game extends JPanel {
         Game game;
         World world;
 
+        /**
+         * Initialize the Physic Engine with its parent node.
+         *
+         * @param game
+         */
         public PhysicEngine(Game game) {
             this.game = game;
         }
 
+        /**
+         * Process all current game entities.
+         * <p>
+         * Entities are filtered on only active ones, ant sorted regarding their priority.
+         * After processing the new position, the entity is constrained to not be out
+         * of the world play area ({@link World#playArea}), and apply a {@link Material#elasticity} factor on it and changes
+         * the velocity on the impacted axis.
+         * </p>
+         *
+         * @param elapsed the elapsed time since previous update call.
+         */
         private void update(long elapsed) {
             this.game.entities.values().stream()
                     .filter(e -> !(e instanceof Camera) && e.isActive())
@@ -1793,6 +1922,15 @@ public class Game extends JPanel {
                     });
         }
 
+        /**
+         * Apply World's play area  ({@link World#playArea}) constrains on the {@link Entity}.
+         * <p>
+         * In case of collision with play area borders, the {@link Material#elasticity} factor is applied onto the
+         * {@link Entity#velocity}, and {@link Entity#position} is corrected.
+         * </p>
+         *
+         * @param e the  Entity to be constrained.
+         */
         private void constraintsEntity(Entity e) {
             Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
             e.contact = 0;
@@ -1818,6 +1956,12 @@ public class Game extends JPanel {
             }
         }
 
+        /**
+         * Update of an individual {@link Entity}
+         *
+         * @param e       the  Entity to be updated.
+         * @param elapsed the elapsed time since previous update call.
+         */
         private void updateEntity(Entity e, long elapsed) {
             double time = elapsed * TIME_FACTOR;
             if (!e.isFixedToCamera() && e.getPhysicType() == PhysicType.DYNAMIC) {
@@ -1845,18 +1989,60 @@ public class Game extends JPanel {
             e.update(elapsed);
         }
 
+        /**
+         * Set the {@link PhysicEngine}'s {@link World} instance to define gravity, play area and more.
+         *
+         * @param world the {@link World} object defining the Physic limit for the {@link PhysicEngine}.
+         */
         public void setWorld(World world) {
             this.world = world;
         }
+
+        /**
+         * Retrieve the current {@link World} instance used by the {@link PhysicEngine} to constrain Entities.
+         *
+         * @return a {@link World} instance used by the PhysicEngine computation system.
+         */
+        public World getWorld() {
+            return this.world;
+        }
     }
 
+    /**
+     * The {@link DrawPlugin} interface define a common way to draw any {@link Entity}.
+     * <p>
+     * It will be used by any implementation to tell how to draw a specific object inheriting from {@link Entity}.
+     *
+     * @param <T> the class inheriting from {@link Entity} this {@link DrawPlugin} implementation is defined for.
+     * @author Frédéric Delorme
+     * @since 1.0.1
+     */
     public interface DrawPlugin<T extends Entity> {
+        /**
+         * Class of the object that can be drawn by that DrawPlugin.
+         *
+         * @return a Class specification.
+         */
         public Class<T> getClassName();
 
+        /**
+         * Implementation of the draw for the defined class
+         *
+         * @param r the parent Renderer
+         * @param g the Graphics2D interface to be used as "pencil"
+         * @param t the T extending {@link Entity} instance to be drawn.
+         */
         public default void draw(Renderer r, Graphics2D g, T t) {
         }
     }
 
+    /**
+     * A Default implementation for the {@link DrawPlugin}, to be used on any basic {@link Entity},
+     * and to be extending for any common {@link Entity} processing.
+     *
+     * @author Frédéric Delorme
+     * @since 1.0.1
+     */
     public abstract class DefaultDrawPlugin<T extends Entity> implements DrawPlugin<T> {
         @Override
         public abstract Class<T> getClassName();
@@ -2266,13 +2452,13 @@ public class Game extends JPanel {
         }
     }
 
-    public class RandomGravitingBehavior implements Behavior<Entity> {
+    public class RandomGravitatingBehavior implements Behavior<Entity> {
         private double speed;
         private double radius1;
         private double y;
         private double x;
 
-        public RandomGravitingBehavior(double x, double y, double radius1) {
+        public RandomGravitatingBehavior(double x, double y, double radius1) {
             this.x = x;
             this.y = y;
             this.radius1 = radius1;
@@ -2407,13 +2593,14 @@ public class Game extends JPanel {
     }
 
     private void prepareStats(int fps, int ups, long internalTime, Map<String, Object> stats) {
+        final String[] meteoTitle = new String[]{"none", "Rain", "Snow"};
         stats.put("dbg", getDebugLevel());
         stats.put("obj", entities.size());
         stats.put("cam", renderer.getCamera() != null ? renderer.getCamera().getName() : "none");
         stats.put("fps", fps);
         stats.put("ups", ups);
         stats.put("time", formatTime(internalTime));
-        stats.put("meteo", meteoValue);
+        stats.put("meteo", meteoTitle[meteoValue]);
 
         stats.put("pause", isPause());
     }

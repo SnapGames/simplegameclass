@@ -45,27 +45,28 @@ public class Demo01 extends Game {
                 .setPriority(2)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
                 .add(new PlayerInputBehavior())
+                // add Moving information for PLayerInput Behavior
+                .setAttribute("step", 0.2)
+                .setAttribute("player_jump", -4.0 * 0.2)
+                // define animations for the player Entity.
                 .add("player_idle", animations.get("player_idle").setSpeed(0.6))
                 .add("player_walk", animations.get("player_walk"))
                 .add("player_fall", animations.get("player_fall"))
                 .add("player_jump", animations.get("player_jump"));
         add(player);
         // add a spinning crystal
-        /*
         Entity crystal = new Entity("crystal", 30, 30, Color.RED, Color.YELLOW)
                 .setSize(16, 16)
                 .add("crystal_spinning", animations.get("crystal_spinning").setSpeed(0.5))
                 .setPriority(3)
                 .setParentRelative(true)
-                .add(new RandomGravitingBehavior(0, -24, 32));
+                .add(new RandomGravitatingBehavior(0, -32, 8));
         player.addChild(crystal);
         add(crystal);
-        */
-
 
         RainBehavior rb = new RainBehavior(world, 20, 100, 20);
+        SnowBehavior sb = new SnowBehavior(world, 2);
         add("rainBehavior", (Behavior<?>) rb);
-        //SnowBehavior sb = new SnowBehavior(world, 2);
         //add("snowBehavior", (Behavior<?>) sb);
 
         // add a new particles animation to simulate rain
