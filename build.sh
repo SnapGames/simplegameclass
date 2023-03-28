@@ -11,13 +11,13 @@ function prop {
 export PROGRAM_NAME=$(prop project.name)
 export PROGRAM_VERSION=$(prop project.version)
 export PROGRAM_TITLE=$(prop project.title)
-export MAIN_CLASS=fr.snapgames.demo.core.Game
+export MAIN_CLASS=$(prop project.mainclass)
 export VENDOR_NAME=$(prop project.author.name)
 export AUTHOR_NAME=$(prop project.author.email)
 
 # A dirty list of package to be build (TODO add automation on package detection)
-export JAVADOC_CLASSPATH="fr.snapgames.demo.core"
-export JAVADOC_GROUPS="-group \"Core package\" fr.snapgames.demo.core"
+export JAVADOC_CLASSPATH="fr.snapgames.demo.core fr.snapgames.demo.demo01 "
+export JAVADOC_GROUPS="-group \"Core package\" fr.snapgames.demo.core -group \"Demo package\" fr.snapgames.demo.demo01"
 
 # paths
 export SRC=./src
