@@ -1,5 +1,7 @@
 # README
 
+[![Build Status](http://nextserver02-1/api/badges/SnapGames/simplegameclass/status.svg)](http://nextserver02-1/SnapGames/simplegameclass)
+
 A simple `Game`  class project will all inside to provide basics for 2D game framreowkr based on the JDK 19 only.
 
 - One master class with subclasses to define principle and reduce footprint.
