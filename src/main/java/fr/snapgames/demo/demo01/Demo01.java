@@ -19,13 +19,14 @@ public class Demo01 extends Game {
 
     @Override
     protected void create(Map<String, Object> context) {
-        Animations animations = (Animations) context.get("animations");
         // initialize PhysicEngine world
         World world = new World(
                 (Double) config.get(ConfigAttribute.PHYSIC_GRAVITY),
                 (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA));
         physicEngine.setWorld(world);
 
+        Animations animations = (Animations) context.get("animations");
+        // defined in the Game inheriting class
         Entity background = (Entity) new Entity("backImage")
                 .setPosition(0, 0)
                 .setPhysicType(PhysicType.STATIC)
@@ -40,16 +41,17 @@ public class Demo01 extends Game {
                 Color.RED,
                 Color.BLACK)
                 .setSize(32.0, 32.0)
-                .setMass(20.0)
+                .setMass(80.0)
                 .setPriority(2)
                 .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
-                .add(new PlayerInput())
+                .add(new PlayerInputBehavior())
                 .add("player_idle", animations.get("player_idle").setSpeed(0.6))
                 .add("player_walk", animations.get("player_walk"))
                 .add("player_fall", animations.get("player_fall"))
                 .add("player_jump", animations.get("player_jump"));
-
+        add(player);
         // add a spinning crystal
+        /*
         Entity crystal = new Entity("crystal", 30, 30, Color.RED, Color.YELLOW)
                 .setSize(16, 16)
                 .add("crystal_spinning", animations.get("crystal_spinning").setSpeed(0.5))
@@ -57,14 +59,25 @@ public class Demo01 extends Game {
                 .setParentRelative(true)
                 .add(new RandomGravitingBehavior(0, -24, 32));
         player.addChild(crystal);
-        add(player);
         add(crystal);
+        */
+
+
+        RainBehavior rb = new RainBehavior(world, 20, 100, 20);
+        add("rainBehavior", (Behavior<?>) rb);
+        //SnowBehavior sb = new SnowBehavior(world, 2);
+        //add("snowBehavior", (Behavior<?>) sb);
 
         // add a new particles animation to simulate rain
-        Particle rain = (Particle) new Particle("rain", 0, 0, 1000)
-                .add((Behavior) new RainBehavior(world, 3))
-                .setPriority(1);
-        add(rain);
+        Particle particles = (Particle) new Particle("particles", 0, 0, 2000)
+                .setPriority(1)
+                //.add(sb)
+                .add(rb)
+                .setActive(true);
+        add(particles);
+
+        // add a new particles animation to simulate rain
+
 
         Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
 
@@ -72,7 +85,10 @@ public class Demo01 extends Game {
                 .setText("00000")
                 .setFont(getFont().deriveFont(Font.BOLD, 20.0f))
                 .setTextColor(Color.WHITE)
-                .setShadowColor(Color.BLACK)
+                .setShadowWidth(2)
+                .setShadowColor(new Color(0.0f, 0.0f, 0.0f, 0.6f))
+                .setBorderWidth(2)
+                .setBorderColor(new Color(0.6f, 0.6f, 0.6f, 0.6f))
                 .setPriority(10)
                 .setFixedToCamera(true);
         add(score);
@@ -82,6 +98,13 @@ public class Demo01 extends Game {
                 .setTween(0.04)
                 .setViewport(vp);
         add(cam);
+
+        // default game action(escape & pause)
+        userInput.add(new GameActionListener(this));
+        // switch between meteo particle animations
+        userInput.add(new MeteoSwitcher());
+        // switch trhogh debug mode levels.
+        userInput.add(new DebugSwitcher(this));
     }
 
     public static void main(String[] args) {
