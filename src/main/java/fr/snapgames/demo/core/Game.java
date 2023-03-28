@@ -23,8 +23,29 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Main Game class application with all its subclasses, encapsulating services
- * and entities.
+ * Main {@link Game} class application with all its subclasses, encapsulating all available services.
+ *
+ * <p>.
+ * Usage sample:
+ * * <pre>
+ *  * <code>
+ *  * public class MyGame extends Game{
+ *  *     public myGame(String[] args){
+ *  *         super(args);
+ *  *     }
+ *  *     public void prepare(Map&lt;String,Object&gt; context){
+ *  *         //...
+ *  *     }
+ *  *     public void create(Map&lt;String,Object&gt; context){
+ *  *         //...
+ *  *     }
+ *  *     public static void main(String[]args){
+ *  *         MyGame g = new MyGame(args);
+ *  *         g.run();
+ *  *     }
+ *  *  }
+ *  * </code>
+ *  * </pre>
  *
  * @author Frédéric Delorme
  * @since 1.0.0
@@ -39,6 +60,9 @@ public class Game extends JPanel {
      * @since 1.0.0
      */
     public enum ConfigAttribute {
+        /**
+         * Define the Window title configuration attribute.
+         */
         TITLE(
                 "window title",
                 "game.title",
@@ -46,6 +70,9 @@ public class Game extends JPanel {
                 "Set the window title",
                 "MyTitle",
                 v -> v),
+        /**
+         * Define the debug level configuration attribute.
+         */
         DEBUG(
                 "debug level",
                 "game.debug",
@@ -53,6 +80,9 @@ public class Game extends JPanel {
                 "Set the debug level",
                 0,
                 Integer::valueOf),
+        /**
+         * Define the Screen resolution configuration attribute.
+         */
         SCREEN_RESOLUTION(
                 "screen resolution",
                 "game.screen.resolution",
@@ -60,6 +90,9 @@ public class Game extends JPanel {
                 "define the screen resolution (pixel rated !)",
                 new Dimension(320, 200),
                 ConfigAttribute::toDimension),
+        /**
+         * Define the Window size configuration attribute.
+         */
         WINDOW_SIZE(
                 "window size",
                 "game.window.size",
@@ -67,6 +100,9 @@ public class Game extends JPanel {
                 "define the window size",
                 new Dimension(320, 200),
                 ConfigAttribute::toDimension),
+        /**
+         * Define the play area for the {@link World} object in {@link PhysicEngine} configuration attribute.
+         */
         PHYSIC_PLAY_AREA(
                 "play area used as world limit",
                 "game.physic.play.area",
@@ -74,6 +110,9 @@ public class Game extends JPanel {
                 "define the play area size",
                 new Dimension(320, 200),
                 ConfigAttribute::toDimension),
+        /**
+         * Define the gravity for the {@link World} object in {@link PhysicEngine} configuration attribute.
+         */
         PHYSIC_GRAVITY(
                 "gravity used for physic world",
                 "game.physic.gravity",
@@ -170,7 +209,7 @@ public class Game extends JPanel {
         }
 
         public Configuration() {
-            this("/config.properties", new String[] {});
+            this("/config.properties", new String[]{});
         }
 
         /**
@@ -214,7 +253,7 @@ public class Game extends JPanel {
          */
         private int extractConfigValuesFromProps(String configFile, int status, Properties props) {
             for (Map.Entry<Object, Object> prop : props.entrySet()) {
-                String[] kv = new String[] { (String) prop.getKey(), (String) prop.getValue() };
+                String[] kv = new String[]{(String) prop.getKey(), (String) prop.getValue()};
                 if (ifArgumentFoundSetToValue(kv) == null) {
                     System.err.printf("WARNING: file=%s : Unknown property '%s' with value '%s'%n",
                             configFile,
@@ -292,7 +331,7 @@ public class Game extends JPanel {
             jarDir = jarFile.getParentFile().getPath();
             externalConfigFile = jarDir + File.separator + "my-"
                     + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1)
-                            : configFile);
+                    : configFile);
             return externalConfigFile;
         }
 
@@ -408,7 +447,7 @@ public class Game extends JPanel {
          *
          * @param ca the {@link ConfigAttribute} you want to retrieve the value for.
          * @return the current value of the {@link ConfigAttribute} from the
-         *         {@link Configuration#configurationValues} map.
+         * {@link Configuration#configurationValues} map.
          */
         public Object get(ConfigAttribute ca) {
             return configurationValues.get(ca);
@@ -536,11 +575,29 @@ public class Game extends JPanel {
      * @since 1.0.0
      */
     public enum EntityType {
+        /**
+         * this entity having a NONE type may not be displayed.
+         */
         NONE,
+        /**
+         * Entity drawn as a simple dot
+         */
         DOT,
+        /**
+         * Entity drawn as a line between (position) to (position+velocity)
+         */
         LINE,
+        /**
+         * Entity drawn as a Rectangle as position of size (width x height)
+         */
         RECTANGLE,
+        /**
+         * Entity drawn as an Eclipse  as position of size (r1=width x r2=height)
+         */
         ELLIPSE,
+        /**
+         * Entity drawn as Image as position of size (width x height)
+         */
         IMAGE;
     }
 
@@ -548,7 +605,7 @@ public class Game extends JPanel {
      * A Node interface to define child/prent hierarchy structure.
      * <p>
      * Here is an implementation with T=Entity
-     * 
+     *
      * <pre>
      *     Object&lt;Entity&gt;
      *     |__ Child1&lt;Entity&gt;
@@ -575,31 +632,30 @@ public class Game extends JPanel {
     }
 
     /**
-     * {@link AbstractEntity} is the master {@link Entity} Object wich all Enenti's
-     * will inherit
-     * from, by defining all the intarenal behavior and processing for an entity.
-     * 
+     * {@link AbstractEntity} is the master {@link Entity} Object which all Entity's
+     * will inherit from, by defining all the internal behavior and processing for an entity.
+     *
      * <p>
-     * To be used, an inheritant must specify its type to the {@link AbstractEntity}
+     * To be used, an inheritance must specify its type to the {@link AbstractEntity}
      * to get the right returned type:
-     * 
-     * 
+     *
+     *
      * <p>
      * The MyEntity type will override any of the existing methods from
      * AbstractEntity,
      * and must have a Constructor call the parent one, here a simplified one with
      * entity's name only.
-     * 
+     *
      * <pre>
-     * public class MyEntity extends AbstractEntyti<MyEntity> {
-     * 
+     * public class MyEntity extends AbstractEntity<MyEntity> {
+     *
      *     public MyEntity(String name) {
      *         super(name, 0, 0, null, null);
      *     }
      *     // ...
      * }
      * </pre>
-     * 
+     *
      * @author Frédéric Delorme
      * @since 1.0.1
      */
@@ -868,9 +924,9 @@ public class Game extends JPanel {
 
     /**
      * The {@link TextEntity} will be sed to display some text on screen.
-     * 
+     * <p>
      * 5 new atribtues are provided:
-     * 
+     *
      * <ul>
      * <li><code>nbParticles</code> the max number of child particles attached to
      * that {@link Particle} entity,</li>
@@ -879,9 +935,9 @@ public class Game extends JPanel {
      * <li><code>shadowColor</code> the color for shadowing text</li>
      * <li><code>font</code> the {@link Font} to be used to draw text.</li>
      * </ul>
-     * 
+     * <p>
      * To create a {@link Particle}:
-     * 
+     *
      * <pre>
      * </pre>
      */
@@ -918,13 +974,12 @@ public class Game extends JPanel {
 
     /**
      * A new Entity to display a bunch of particles.
-     * 
+     *
      * <p>
      * The {@link Particle} entity is a group of child entity sharing the same
      * behavior.
      * And the {@link Particle} behavior is a new flavor of the {@link Behavior}'s
      * one adding new methods: the {@link ParticleBehavior}.
-     * 
      */
     public class Particle extends Entity {
         int nbParticles = 0;
@@ -957,9 +1012,9 @@ public class Game extends JPanel {
      * The {@link Camera} is a specific {@link Entity} that is used to let the
      * screen view follow a defined target.
      * As such a Caemra in the a movie, it will follow a target with smooth moves.
-     * 
+     * <p>
      * Defining a camera is notheting than this sample of code:
-     * 
+     *
      * <pre>
      * public void create(){
      *    //...
@@ -967,7 +1022,7 @@ public class Game extends JPanel {
      *         .setTarget(player)
      *         .setTween(0.04)
      *         .setViewport(vp);
-     *    add(cam);  
+     *    add(cam);
      *    //...
      * }
      * </pre>
@@ -1224,8 +1279,8 @@ public class Game extends JPanel {
     }
 
     public class World {
-        double gravity = 0.981;
-        Dimension playArea;
+        private double gravity = 0.981;
+        private Dimension playArea;
 
         public World(double g, Dimension pa) {
             this.gravity = g;
@@ -1274,7 +1329,7 @@ public class Game extends JPanel {
         Particle create(T parent);
     }
 
-    private class RainBehavior implements ParticleBehavior<Particle> {
+    public class RainBehavior implements ParticleBehavior<Particle> {
         private int batch = 10;
         Dimension playArea;
         List<Particle> drops = new ArrayList<>();
@@ -1823,7 +1878,7 @@ public class Game extends JPanel {
         }
     }
 
-    private class RandomGravitingBehavior implements Behavior<Entity> {
+    public class RandomGravitingBehavior implements Behavior<Entity> {
         private double speed;
         private double radius1;
         private double y;
@@ -1855,11 +1910,11 @@ public class Game extends JPanel {
 
     }
 
-    private Configuration config;
-    private Resources resources;
-    private UserInput userInput;
-    private PhysicEngine physicEngine;
-    private Renderer renderer;
+    protected Configuration config;
+    protected Resources resources;
+    protected UserInput userInput;
+    protected PhysicEngine physicEngine;
+    protected Renderer renderer;
     private boolean exit;
     private boolean pause;
     private Map<String, Entity> entities = new HashMap<>();
@@ -1891,78 +1946,21 @@ public class Game extends JPanel {
 
     public void run() {
         System.out.printf("Main program started%n");
-        create();
+        Map<String, Object> context = new HashMap<>();
+        prepare(context);
+        create(context);
         System.out.printf("Scene created%n");
         loop();
         dispose();
         System.out.printf("Main program ended%n");
     }
 
-    private void create() {
-        // load animations from the description file
-        Animations animations = new Animations("/animations.properties");
-        // initialize PhysicEngine world
-        World world = new World(
-                (Double) config.get(ConfigAttribute.PHYSIC_GRAVITY),
-                (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA));
-        physicEngine.setWorld(world);
+    protected void prepare(Map<String, Object> context) {
+        // defined in the Game inheriting class
+    }
 
-        Entity background = (Entity) new Entity("backImage")
-                .setPosition(0, 0)
-                .setPhysicType(PhysicType.STATIC)
-                .setImage(resources.getImage("/images/backgrounds/forest.jpg"))
-                .setPriority(0);
-        add(background);
-
-        // add the main player entity.
-        Entity player = new Entity("player",
-                (int) ((world.playArea.getWidth() - 8) * 0.5),
-                (int) ((world.playArea.getHeight() - 8) * 0.5),
-                Color.RED,
-                Color.BLACK)
-                .setSize(32.0, 32.0)
-                .setMass(20.0)
-                .setPriority(2)
-                .setMaterial(new Material("player_mat", 1.0, 0.67, 0.90))
-                .add(new PlayerInput())
-                .add("player_idle", animations.get("player_idle").setSpeed(0.6))
-                .add("player_walk", animations.get("player_walk"))
-                .add("player_fall", animations.get("player_fall"))
-                .add("player_jump", animations.get("player_jump"));
-
-        // add a spinning crystal
-        Entity crystal = new Entity("crystal", 30, 30, Color.RED, Color.YELLOW)
-                .setSize(16, 16)
-                .add("crystal_spinning", animations.get("crystal_spinning").setSpeed(0.5))
-                .setPriority(3)
-                .setParentRelative(true)
-                .add(new RandomGravitingBehavior(0, -24, 32));
-        player.addChild(crystal);
-        add(player);
-        add(crystal);
-
-        // add a new particles animation to simulate rain
-        Particle rain = (Particle) new Particle("rain", 0, 0, 1000)
-                .add((Behavior) new RainBehavior(world, 3))
-                .setPriority(1);
-        add(rain);
-
-        Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
-
-        TextEntity score = (TextEntity) new TextEntity("score", vp.width - 80, 30)
-                .setText("00000")
-                .setFont(getFont().deriveFont(Font.BOLD, 20.0f))
-                .setTextColor(Color.WHITE)
-                .setShadowColor(Color.BLACK)
-                .setPriority(10)
-                .setFixedToCamera(true);
-        add(score);
-
-        Camera cam = new Camera("myCam")
-                .setTarget(player)
-                .setTween(0.04)
-                .setViewport(vp);
-        add(cam);
+    protected void create(Map<String, Object> context) {
+        // defined in the Game inheriting class
     }
 
     private void loop() {
@@ -2081,7 +2079,7 @@ public class Game extends JPanel {
         this.debug = d;
     }
 
-    private void add(Entity entity) {
+    protected void add(Entity entity) {
         if (entity instanceof Camera) {
             renderer.setCamera((Camera) entity);
             cameras.put(entity.getName(), (Camera) entity);

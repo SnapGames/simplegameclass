@@ -4,8 +4,8 @@ cd ./
 ENV=build
 
 function prop {
-#grep "${1}" env/${ENV}.properties|cut -d'=' -f2
- grep "${1}" ${ENV}.properties|cut -d'=' -f2
+  #grep "${1}" env/${ENV}.properties|cut -d'=' -f2
+  grep "${1}" ${ENV}.properties | cut -d'=' -f2
 }
 
 export PROGRAM_NAME=$(prop project.name)
@@ -46,7 +46,7 @@ export SRC=src
 export LIBS=lib
 export LIB_TEST=$LIBS/test/junit-platform-console-standalone-1.8.2.jar
 export LIB_CHECKSTYLES=$LIBS/tools/checkstyle-10.3-all.jar
-export TARGET=./target
+export TARGET=target
 export BUILD=$TARGET/build
 export CLASSES=$TARGET/classes
 export TESTCLASSES=$TARGET/test-classes
@@ -106,7 +106,7 @@ function checkCodeStyleQA() {
   find $SRC/main -name '*.java' >$TARGET/sources.lst
   java $JAR_OPTS -cp "$LIB_CHECKSTYLES:$CLASSES:." \
     -jar $LIB_CHECKSTYLES \
-  java $JAR_OPTS -cp "$LIB_CHECKSTYLES:$CLASSES:." \
+    java $JAR_OPTS -cp "$LIB_CHECKSTYLES:$CLASSES:." \
     -jar $LIB_CHECKSTYLES \
     -c $CHECK_RULES_FILE \
     -f xml \
@@ -121,13 +121,21 @@ function generatedoc() {
   echo "> to   : $TARGET/javadoc"
   # prepare target
   mkdir -p $TARGET/javadoc
+  mkdir -p $SRC/main/javadoc
   # Compile class files
   rm -Rf $TARGET/javadoc/*
   echo "|_ 2-5. generate javadoc from '$JAVADOC_CLASSPATH' ..."
   java -jar ./lib/tools/markdown2html-0.3.1.jar <README.md >$TARGET/javadoc/overview.html
+  echo "javadoc $JAR_OPTS -source $SOURCE_VERSION \
+  -author -use -version \
+  -doctitle "$PROGRAM_TITLE" \
+  -d $TARGET/javadoc \
+  -sourcepath $SRC/main/java $JAVADOC_CLASSPATH \
+  -overview $TARGET/javadoc/overview.html \
+  $JAVADOC_GROUPS"
   javadoc $JAR_OPTS -source $SOURCE_VERSION \
     -author -use -version \
-    -doctitle "<h1>$PROGRAM_TITLE</h1>" \
+    -doctitle "$PROGRAM_TITLE" \
     -d $TARGET/javadoc \
     -sourcepath $SRC/main/java $JAVADOC_CLASSPATH \
     -overview $TARGET/javadoc/overview.html \

@@ -1,0 +1,46 @@
+<h1>README</h1>
+<p><a href="http://nextserver02-1/SnapGames/simplegameclass"><img src="http://nextserver02-1/api/badges/SnapGames/simplegameclass/status.svg" alt="Build Status" /></a></p>
+<p>A simple <code>Game</code>  class project will all inside to provide basics for 2D game framreowkr based on the JDK 19 only.</p>
+<ul>
+<li>One master class with subclasses to define principle and reduce footprint.</li>
+<li>No specific java build tool like maven or gradle, but only bash scripts with java/javac JDK commands. any specific
+dependencies may be store in the lib directory for build or test usage.</li>
+</ul>
+<h2>build</h2>
+<pre><code class="language-bash">build.sh 
+</code></pre>
+<h2>run</h2>
+<pre><code class="language-bash">java -jar target/simpleclass.jar
+</code></pre>
+<p>Available CLI arguments &amp; configuration file parameters:</p>
+<table>
+<thead>
+<tr><th align="left">Configuration</th><th align="left">Argument</th><th align="left">Type</th><th align="left">Description</th></tr>
+</thead>
+<tbody>
+<tr><td align="left">game.size</td><td align="left">size</td><td align="left">Dimension</td><td align="left">define window dimension: <code>(width)x(height)</code></td></tr>
+<tr><td align="left">game.screen.resolution</td><td align="left">resolution</td><td align="left">Dimension</td><td align="left">Define Screen resolution <code>(width)x(height)</code></td></tr>
+<tr><td align="left">game.physic.play.area</td><td align="left">playarea</td><td align="left">Dimension</td><td align="left">Define the physic module play area dimension <code>(width)x(height)</code></td></tr>
+<tr><td align="left">game.physic.gravity</td><td align="left">gravity</td><td align="left">Double</td><td align="left">Define the physic module gravity value <code>0.981</code></td></tr>
+<tr><td align="left">game.title</td><td align="left">title</td><td align="left">String</td><td align="left">define the title for the game window <code>My Own Title</code></td></tr>
+<tr><td align="left">game.debug</td><td align="left">debug</td><td align="left">Integer</td><td align="left">set the debug information level <code>0</code> to <code>5</code> where 0 = no info</td></tr>
+</tbody>
+</table>
+<p>Any argument can be activated by using the command line option :</p>
+<pre><code class="language-bash">java -jar target/simpleclass.jar game.title=ThisIsMyWindow
+</code></pre>
+<blockquote>
+<p><strong>NOTE</strong></p>
+<p>An internal configuration file <code>config.properties</code> is provided into the JAR itself, but you can overload the
+properties with t a side part <code>my-config.properties</code> file, located at the root place of the JAR file.</p>
+<pre><code>path_to_my_jar
+|_ simplegameclass.jar
+|_ my-config.properties
+</code></pre>
+<p>Now executing the JAR file, default values will be loaded from internal file, and then every <code>key=value</code> from
+<code>my-config.properties</code> will overload those default values.</p>
+</blockquote>
+<p>A new window running the demonstration game will appear with &ldquo;ThisIsMyWindow&rdquo; as title.</p>
+<p><img src="docs/images/screenshot-sgc-002.gif" alt="A screenshot of the existing demo for SimpleGameClass (SGC)" /></p>
+<p>McG.</p>
+
