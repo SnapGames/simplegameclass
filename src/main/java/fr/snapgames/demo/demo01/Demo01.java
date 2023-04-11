@@ -84,7 +84,7 @@ public class Demo01 extends Game {
 
         TextEntity score = (TextEntity) new TextEntity("score", vp.width - 80, 30)
                 .setText("00000")
-                .setFont(getFont().deriveFont(Font.BOLD, 20.0f))
+                .setFont(renderer.getGraphics().getFont().deriveFont(Font.BOLD, 20.0f))
                 .setTextColor(Color.WHITE)
                 .setShadowWidth(2)
                 .setShadowColor(new Color(0.0f, 0.0f, 0.0f, 0.6f))

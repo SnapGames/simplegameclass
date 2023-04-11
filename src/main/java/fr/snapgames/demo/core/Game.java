@@ -29,7 +29,7 @@ import java.util.stream.Stream;
  * @author Frédéric Delorme
  * @since 1.0.0
  */
-public class Game extends JPanel {
+public class Game {
 
     /**
      * This enumeration define all the possible configuration attributes to be used
@@ -2222,9 +2222,8 @@ public class Game extends JPanel {
             JFrame frame = new JFrame(title);
 
             // setPreferredSize(size);
-            this.game.setPreferredSize(size);
+            frame.setPreferredSize(size);
             frame.setLayout(new GridLayout());
-            frame.add(this.game);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setIconImage(resources.getImage("/images/sg-logo-image.png"));
             frame.setLocationRelativeTo(null);
@@ -2410,6 +2409,10 @@ public class Game extends JPanel {
 
         public Camera getCamera() {
             return camera;
+        }
+
+        public Graphics2D getGraphics() {
+            return (Graphics2D) this.renderingBuffer.getGraphics();
         }
     }
 
