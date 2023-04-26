@@ -25,7 +25,7 @@ export LIBS=./lib
 export TARGET=./target
 export BUILD=${TARGET}/build
 export CLASSES=${TARGET}/classes
-export RESOURCES=${SRC}/main/resources
+export RESOURCES=${SRC}/main/resourceSystem
 
 # ---- Java JDK version and file encoding
 export SOURCE_VERSION=19
@@ -50,8 +50,8 @@ export TARGET=target
 export BUILD=$TARGET/build
 export CLASSES=$TARGET/classes
 export TESTCLASSES=$TARGET/test-classes
-export RESOURCES=$SRC/main/resources
-export TESTRESOURCES=$SRC/test/resources
+export RESOURCES=$SRC/main/resourceSystem
+export TESTRESOURCES=$SRC/test/resourceSystem
 export JAR_NAME=$PROGRAM_NAME-$PROGRAM_VERSION.jar
 # ---- to enforce preview compatibility use the --enable-preview mode,
 # ---- for more information, see https://docs.oracle.com/en/java/javase/18/language/preview-language-and-vm-features.html
@@ -150,8 +150,8 @@ function executeTests() {
   echo "> to   : $TARGET/test-classes"
   mkdir -p $TARGET/test-classes
   echo "copy test resources"
-  cp -r ./src/main/resources/* $TESTCLASSES
-  cp -r ./src/test/resources/* $TESTCLASSES
+  cp -r ./src/main/resourceSystem/* $TESTCLASSES
+  cp -r ./src/test/resourceSystem/* $TESTCLASSES
   echo "compile test classes"
   #list test sources
   find $SRC/main -name '*.java' >$TARGET/sources.lst

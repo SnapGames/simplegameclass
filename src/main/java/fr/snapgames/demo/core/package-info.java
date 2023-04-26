@@ -6,10 +6,10 @@
  * </p>
  *
  * <ul>
- *     <li><code>prepare()</code> where you will preload all the required resources and prepared some objects,
- *     like preloading {@link fr.snapgames.demo.core.Game.Animations},</li>
- *     <li><code>create()</code> here a instantiated all the required {@link fr.snapgames.demo.core.Game.Entity},
- *     {@link fr.snapgames.demo.core.Game.Camera}, {@link fr.snapgames.demo.core.Game.Particle}, etc...
+ *     <li><code>prepare()</code> where you will preload all the required resourceSystem and prepared some objects,
+ *     like preloading {@link fr.snapgames.demo.core.gfx.animation.Animations},</li>
+ *     <li><code>create()</code> here a instantiated all the required {@link fr.snapgames.demo.core.entity.Entity},
+ *     {@link fr.snapgames.demo.core.entity.Camera}, {@link fr.snapgames.demo.core.entity.Particle}, etc...
  *     to set your game scene.</li>
  * </ul>
  *

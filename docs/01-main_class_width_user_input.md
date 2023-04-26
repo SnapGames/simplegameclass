@@ -87,7 +87,7 @@ public class Main {
     }
 
     public void create() {
-        // create resources for the game.
+        // create resourceSystem for the game.
     }
 
     public void loop() {
@@ -100,7 +100,7 @@ public class Main {
     }
 
     public void dispose() {
-        // will created free resources
+        // will created free resourceSystem
     }
 
     public static void game(String[] args) {
