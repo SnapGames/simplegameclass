@@ -80,7 +80,8 @@ public class Game {
                 new Dimension(320, 200),
                 ConfigAttribute::toDimension),
         /**
-         * Define the play area for the {@link World} object in {@link PhysicEngine} configuration attribute.
+         * Define the play area for the {@link World} object in {@link PhysicEngine}
+         * configuration attribute.
          */
         PHYSIC_PLAY_AREA(
                 "play area used as world limit",
@@ -90,7 +91,8 @@ public class Game {
                 new Dimension(320, 200),
                 ConfigAttribute::toDimension),
         /**
-         * Define the gravity for the {@link World} object in {@link PhysicEngine} configuration attribute.
+         * Define the gravity for the {@link World} object in {@link PhysicEngine}
+         * configuration attribute.
          */
         PHYSIC_GRAVITY(
                 "gravity used for physic world",
@@ -188,7 +190,7 @@ public class Game {
         }
 
         public Configuration() {
-            this("/config.properties", new String[]{});
+            this("/config.properties", new String[] {});
         }
 
         /**
@@ -232,7 +234,7 @@ public class Game {
          */
         private int extractConfigValuesFromProps(String configFile, int status, Properties props) {
             for (Map.Entry<Object, Object> prop : props.entrySet()) {
-                String[] kv = new String[]{(String) prop.getKey(), (String) prop.getValue()};
+                String[] kv = new String[] { (String) prop.getKey(), (String) prop.getValue() };
                 if (ifArgumentFoundSetToValue(kv) == null) {
                     System.err.printf("WARNING: file=%s : Unknown property '%s' with value '%s'%n",
                             configFile,
@@ -310,7 +312,7 @@ public class Game {
             jarDir = jarFile.getParentFile().getPath();
             externalConfigFile = jarDir + File.separator + "my-"
                     + (configFile.startsWith("/") || configFile.startsWith("\\") ? configFile.substring(1)
-                    : configFile);
+                            : configFile);
             return externalConfigFile;
         }
 
@@ -427,7 +429,7 @@ public class Game {
          *
          * @param ca the {@link ConfigAttribute} you want to retrieve the value for.
          * @return the current value of the {@link ConfigAttribute} from the
-         * {@link Configuration#configurationValues} map.
+         *         {@link Configuration#configurationValues} map.
          */
         public Object get(ConfigAttribute ca) {
             return configurationValues.get(ca);
@@ -572,7 +574,7 @@ public class Game {
          */
         RECTANGLE,
         /**
-         * Entity drawn as an Eclipse  as position of size (r1=width x r2=height)
+         * Entity drawn as an Eclipse as position of size (r1=width x r2=height)
          */
         ELLIPSE,
         /**
@@ -613,10 +615,12 @@ public class Game {
 
     /**
      * {@link AbstractEntity} is the master {@link Entity} Object which all Entity's
-     * will inherit from, by defining all the internal behavior and processing for an entity.
+     * will inherit from, by defining all the internal behavior and processing for
+     * an entity.
      *
      * <p>
-     * To be used, an inheritance must specify its type to the {@link AbstractEntity}
+     * To be used, an inheritance must specify its type to the
+     * {@link AbstractEntity}
      * to get the right returned type:
      *
      *
@@ -739,7 +743,6 @@ public class Game {
             return (T) this;
         }
 
-
         public List<T> getChild() {
             return child;
         }
@@ -849,7 +852,6 @@ public class Game {
             return (T) this;
         }
 
-
         public T setBorderColor(Color bc) {
             this.borderColor = bc;
             return (T) this;
@@ -899,7 +901,6 @@ public class Game {
             }
         }
     }
-
 
     /**
      * Core Entity for all managed object on screen.
@@ -1027,14 +1028,14 @@ public class Game {
      * Defining a camera is notheting than this sample of code:
      *
      * <pre>
-     * public void create(){
-     *    //...
-     *    Camera cam = new Camera("myCam")
-     *         .setTarget(player)
-     *         .setTween(0.04)
-     *         .setViewport(vp);
-     *    add(cam);
-     *    //...
+     * public void create() {
+     *     // ...
+     *     Camera cam = new Camera("myCam")
+     *             .setTarget(player)
+     *             .setTween(0.04)
+     *             .setViewport(vp);
+     *     add(cam);
+     *     // ...
      * }
      * </pre>
      */
@@ -1100,8 +1101,10 @@ public class Game {
             if (e.isFixedToCamera() || e.getPhysicType().equals(PhysicType.STATIC)) {
                 return true;
             } else if (e.isRelativeToParent()) {
-                return e.position.x + e.parent.position.x >= position.x && e.position.x + e.parent.position.x <= position.x + viewport.width
-                        && e.position.y + e.parent.position.y >= position.y && e.position.y + e.parent.position.y <= position.y + viewport.height;
+                return e.position.x + e.parent.position.x >= position.x
+                        && e.position.x + e.parent.position.x <= position.x + viewport.width
+                        && e.position.y + e.parent.position.y >= position.y
+                        && e.position.y + e.parent.position.y <= position.y + viewport.height;
             } else {
                 return e.position.x >= position.x && e.position.x <= position.x + viewport.width
                         && e.position.y >= position.y && e.position.y <= position.y + viewport.height;
@@ -1114,8 +1117,10 @@ public class Game {
      * A future object to be used into the PhysicEngine to define new constrains,
      * to apply effects on Entity intersecting with the Influencer area.
      * <p>
-     * This {@link Influencer} would be able to  apply new force (magnetic, wind, etc...) on the
-     * {@link Entity}, and dynamically change the default {@link Entity}'s {@link Material}.
+     * This {@link Influencer} would be able to apply new force (magnetic, wind,
+     * etc...) on the
+     * {@link Entity}, and dynamically change the default {@link Entity}'s
+     * {@link Material}.
      *
      * @author Frédéric Delorme
      * @since 1.0.2
@@ -1131,8 +1136,10 @@ public class Game {
      * This {@link Animation} object set the Frames as a sprite animation.
      * <p>
      * It contains 2 main buffers; image and time.
-     * The {@link Animation} can be played in an infinite loop, and can end at a defined point.
-     * This Animation object can be attributed to an {@link Entity}. the corresponding frame
+     * The {@link Animation} can be played in an infinite loop, and can end at a
+     * defined point.
+     * This Animation object can be attributed to an {@link Entity}. the
+     * corresponding frame
      * will be used in place of the {@link Entity#image}
      * </p>
      *
@@ -1197,7 +1204,8 @@ public class Game {
     }
 
     /**
-     * The {@link Animations} class is a utility to load a bunch of animation defined into a properties file
+     * The {@link Animations} class is a utility to load a bunch of animation
+     * defined into a properties file
      * and store in a cache corresponding {@link Animation} instances.
      *
      * @author Frédéric Delorme
@@ -1209,7 +1217,8 @@ public class Game {
         /**
          * Initialize a bunch of animation fom the animationFile properties.
          *
-         * @param animationFile the properties file defining all the animations with their frames and times.
+         * @param animationFile the properties file defining all the animations with
+         *                      their frames and times.
          * @see Animations#loadFromFile(String)
          */
         public Animations(String animationFile) {
@@ -1272,7 +1281,8 @@ public class Game {
          * Create one {@link Animation} instance according to the prepared data.
          *
          * @param imageSrcPath image file where to extract frames
-         * @param loop         set the looping attribute for the {@link Animation} instance
+         * @param loop         set the looping attribute for the {@link Animation}
+         *                     instance
          * @param framesDef    a list of frame definition <code>"x,y,w,h,t"</code>.
          * @return the corresponding initialized {@link Animation} instance.
          */
@@ -1313,6 +1323,10 @@ public class Game {
         private boolean[] keys = new boolean[65636];
 
         private List<UserActionListener> listeners = new ArrayList<>();
+        private boolean ctrlKeyPressed;
+        private boolean shiftKeyPressed;
+        private boolean altKeyPressed;
+        private boolean altGrKeyPressed;
 
         public UserInput(Game game) {
             this.game = game;
@@ -1330,17 +1344,34 @@ public class Game {
         @Override
         public void keyPressed(KeyEvent e) {
             keys[e.getKeyCode()] = true;
+            checkMetaKeys(e);
             listeners.forEach(k -> k.keyPressed(e));
         }
 
         @Override
         public void keyReleased(KeyEvent e) {
             keys[e.getKeyCode()] = false;
+            checkMetaKeys(e);
             listeners.forEach(k -> k.keyReleased(e));
+        }
+
+        private void checkMetaKeys(KeyEvent e) {
+            this.ctrlKeyPressed = e.isControlDown();
+            this.shiftKeyPressed = e.isShiftDown();
+            this.altKeyPressed = e.isAltDown();
+            this.altGrKeyPressed = e.isAltGraphDown();
         }
 
         private boolean getKey(int k) {
             return keys[k];
+        }
+
+        public boolean isShiftPressed() {
+            return shiftKeyPressed;
+        }
+
+        public boolean isCtrlPressed() {
+            return ctrlKeyPressed;
         }
     }
 
@@ -1384,21 +1415,21 @@ public class Game {
         public void keyReleased(KeyEvent e) {
             if (e.getKeyCode() == KeyEvent.VK_M) {
                 meteoValue = (meteoValue + 1 < 3 ? meteoValue + 1 : 0);
-                //SnowBehavior snow = (SnowBehavior) behaviors.get("snowBehavior");
+                // SnowBehavior snow = (SnowBehavior) behaviors.get("snowBehavior");
                 RainBehavior rain = (RainBehavior) behaviors.get("rainBehavior");
                 Entity particles = entities.get("particles");
                 switch (meteoValue) {
                     case 0 -> {
                         rain.stop();
-                        //snow.stop();
+                        // snow.stop();
                     }
                     case 1 -> {
                         rain.start();
-                        //snow.stop();
+                        // snow.stop();
                     }
                     case 2 -> {
                         rain.stop();
-                        //snow.start();
+                        // snow.start();
                     }
                 }
             }
@@ -1422,7 +1453,8 @@ public class Game {
     }
 
     /**
-     * The {@link World} object defining the limit of the {@link PhysicEngine} universe here the {@link Entity} will evolve.
+     * The {@link World} object defining the limit of the {@link PhysicEngine}
+     * universe here the {@link Entity} will evolve.
      * <p>
      * It will contain a default a gravity, and a play area where Entity moves.
      *
@@ -1459,10 +1491,13 @@ public class Game {
     }
 
     /**
-     * The {@link Material} class is defining some physic attributes to be applied on some {@link Entity},
-     * and used in the {@link PhysicEngine} Newton's laws processing to move {@link Entity}.
+     * The {@link Material} class is defining some physic attributes to be applied
+     * on some {@link Entity},
+     * and used in the {@link PhysicEngine} Newton's laws processing to move
+     * {@link Entity}.
      * <p>
-     * It is used to define common physic attributes like {@link Material#elasticity}, {@link Material#density}
+     * It is used to define common physic attributes like
+     * {@link Material#elasticity}, {@link Material#density}
      * and {@link Material#friction}.
      *
      * @author Frédéric Delorme
@@ -1642,11 +1677,12 @@ public class Game {
     }
 
     /**
-     * The {@link RainBehavior} is {@link ParticleBehavior} implementation to simulate Rain.
+     * The {@link RainBehavior} is {@link ParticleBehavior} implementation to
+     * simulate Rain.
      * rain drop will fall from sky (upper play area) to ground (lower play area).
      * Rain drops are DOT with a blue half-transparent color.
      *
-     * @author Frédérc Delorme
+     * @author Frédéric Delorme
      * @since 1.0.1
      */
     public class RainBehavior implements ParticleBehavior<Particle> {
@@ -1838,7 +1874,8 @@ public class Game {
     }
 
     /**
-     * {@link PhysicType} for any {@link Entity}. It defines the Physic Computation applied to the
+     * {@link PhysicType} for any {@link Entity}. It defines the Physic Computation
+     * applied to the
      * {@link Entity} according to the fact it os static of dynamic.
      *
      * @author Frédéric Delorme
@@ -1848,7 +1885,8 @@ public class Game {
      */
     public enum PhysicType {
         /**
-         * A STATIC {@link Entity} will not be updated by the {@link PhysicEngine} computation,
+         * A STATIC {@link Entity} will not be updated by the {@link PhysicEngine}
+         * computation,
          * only the entity's behaviors will be updated.
          */
         STATIC,
@@ -1902,9 +1940,11 @@ public class Game {
         /**
          * Process all current game entities.
          * <p>
-         * Entities are filtered on only active ones, ant sorted regarding their priority.
+         * Entities are filtered on only active ones, ant sorted regarding their
+         * priority.
          * After processing the new position, the entity is constrained to not be out
-         * of the world play area ({@link World#playArea}), and apply a {@link Material#elasticity} factor on it and changes
+         * of the world play area ({@link World#playArea}), and apply a
+         * {@link Material#elasticity} factor on it and changes
          * the velocity on the impacted axis.
          * </p>
          *
@@ -1923,13 +1963,15 @@ public class Game {
         }
 
         /**
-         * Apply World's play area  ({@link World#playArea}) constrains on the {@link Entity}.
+         * Apply World's play area ({@link World#playArea}) constrains on the
+         * {@link Entity}.
          * <p>
-         * In case of collision with play area borders, the {@link Material#elasticity} factor is applied onto the
+         * In case of collision with play area borders, the {@link Material#elasticity}
+         * factor is applied onto the
          * {@link Entity#velocity}, and {@link Entity#position} is corrected.
          * </p>
          *
-         * @param e the  Entity to be constrained.
+         * @param e the Entity to be constrained.
          */
         private void constraintsEntity(Entity e) {
             Dimension playArea = (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA);
@@ -1959,7 +2001,7 @@ public class Game {
         /**
          * Update of an individual {@link Entity}
          *
-         * @param e       the  Entity to be updated.
+         * @param e       the Entity to be updated.
          * @param elapsed the elapsed time since previous update call.
          */
         private void updateEntity(Entity e, long elapsed) {
@@ -1990,16 +2032,19 @@ public class Game {
         }
 
         /**
-         * Set the {@link PhysicEngine}'s {@link World} instance to define gravity, play area and more.
+         * Set the {@link PhysicEngine}'s {@link World} instance to define gravity, play
+         * area and more.
          *
-         * @param world the {@link World} object defining the Physic limit for the {@link PhysicEngine}.
+         * @param world the {@link World} object defining the Physic limit for the
+         *              {@link PhysicEngine}.
          */
         public void setWorld(World world) {
             this.world = world;
         }
 
         /**
-         * Retrieve the current {@link World} instance used by the {@link PhysicEngine} to constrain Entities.
+         * Retrieve the current {@link World} instance used by the {@link PhysicEngine}
+         * to constrain Entities.
          *
          * @return a {@link World} instance used by the PhysicEngine computation system.
          */
@@ -2009,11 +2054,14 @@ public class Game {
     }
 
     /**
-     * The {@link DrawPlugin} interface define a common way to draw any {@link Entity}.
+     * The {@link DrawPlugin} interface define a common way to draw any
+     * {@link Entity}.
      * <p>
-     * It will be used by any implementation to tell how to draw a specific object inheriting from {@link Entity}.
+     * It will be used by any implementation to tell how to draw a specific object
+     * inheriting from {@link Entity}.
      *
-     * @param <T> the class inheriting from {@link Entity} this {@link DrawPlugin} implementation is defined for.
+     * @param <T> the class inheriting from {@link Entity} this {@link DrawPlugin}
+     *            implementation is defined for.
      * @author Frédéric Delorme
      * @since 1.0.1
      */
@@ -2037,7 +2085,8 @@ public class Game {
     }
 
     /**
-     * A Default implementation for the {@link DrawPlugin}, to be used on any basic {@link Entity},
+     * A Default implementation for the {@link DrawPlugin}, to be used on any basic
+     * {@link Entity},
      * and to be extending for any common {@link Entity} processing.
      *
      * @author Frédéric Delorme
@@ -2069,7 +2118,8 @@ public class Game {
                     g.setColor(e.borderColor);
                     Stroke bs = g.getStroke();
                     g.setStroke(new BasicStroke((float) e.width));
-                    g.drawLine((int) x, (int) y, (int) (e.position.x + e.velocity.x), (int) (e.position.y + e.velocity.y));
+                    g.drawLine((int) x, (int) y, (int) (e.position.x + e.velocity.x),
+                            (int) (e.position.y + e.velocity.y));
                     g.setStroke(bs);
                 }
                 // draw an ellipse
@@ -2179,7 +2229,6 @@ public class Game {
                         (int) textEntity.position.x + sw, (int) textEntity.position.y + sw);
             }
 
-
             g.setColor(textEntity.textColor);
             g.drawString(
                     textEntity.text,
@@ -2249,9 +2298,6 @@ public class Game {
             g.setColor(Color.BLACK);
             g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
 
-            if (this.isDebugAtLeast(1)) {
-                drawDebugInfoOnScreen(playArea, g);
-            }
             // draw something
             this.game.entities.values().stream()
                     .filter(e -> !(e instanceof Camera) && e.isActive() && camera.isInFOV(e))
@@ -2267,6 +2313,10 @@ public class Game {
                             camera.postDraw(g);
                         }
                     });
+
+            if (this.isDebugAtLeast(1)) {
+                drawDebugInfoOnScreen(playArea, g);
+            }
             g.dispose();
 
             // draw buffer to window.
@@ -2420,7 +2470,7 @@ public class Game {
         @Override
         public void input(UserInput ui, Entity player) {
             boolean move = false;
-            double step = (double) player.getAttribute("step", 0.2);
+            double step = (double) player.getAttribute("step", 0.1);
             double jump = (double) player.getAttribute("player_jump", -4.0 * 0.2);
             if (ui.getKey(KeyEvent.VK_UP)) {
                 player.velocity.y += jump;
@@ -2432,13 +2482,19 @@ public class Game {
                 player.currentAnimation = "player_walk";
                 move = true;
             }
+            if (ui.isShiftPressed()) {
+                step *= 2.0;
+            }
+            if (ui.isCtrlPressed()) {
+                step *= 4.0;
+            }
             if (ui.getKey(KeyEvent.VK_LEFT)) {
-                player.velocity.x += -step;
+                player.velocity.x = -step;
                 player.currentAnimation = "player_walk";
                 move = true;
             }
             if (ui.getKey(KeyEvent.VK_RIGHT)) {
-                player.velocity.x += step;
+                player.velocity.x = step;
                 player.currentAnimation = "player_walk";
                 move = true;
             }
@@ -2506,11 +2562,6 @@ public class Game {
     public Game(String[] args, String pathToConfigPropsFile) {
         config = new Configuration(pathToConfigPropsFile, args);
         initialize();
-    }
-
-    public static void main(String[] args) {
-        Game app = new Game(args, "/config.properties");
-        app.run();
     }
 
     public void initialize() {
@@ -2596,7 +2647,7 @@ public class Game {
     }
 
     private void prepareStats(int fps, int ups, long internalTime, Map<String, Object> stats) {
-        final String[] meteoTitle = new String[]{"none", "Rain", "Snow"};
+        final String[] meteoTitle = new String[] { "none", "Rain", "Snow" };
         stats.put("dbg", getDebugLevel());
         stats.put("obj", entities.size());
         stats.put("cam", renderer.getCamera() != null ? renderer.getCamera().getName() : "none");
@@ -2679,4 +2730,8 @@ public class Game {
         return this.behaviors.get(key);
     }
 
+    public static void main(String[] args) {
+        Game app = new Game(args, "/config.properties");
+        app.run();
+    }
 }

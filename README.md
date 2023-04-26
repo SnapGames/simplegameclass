@@ -42,7 +42,7 @@ java -jar target/simpleclass.jar game.title=ThisIsMyWindow
 > An internal configuration file `config.properties` is provided into the JAR itself, but you can overload the
 > properties with t a side part `my-config.properties` file, located at the root place of the JAR file.
 > ```
-> path_to_my_jar
+> path_to_my_jar/
 > |_ simplegameclass.jar
 > |_ my-config.properties
 > ```
