@@ -4,10 +4,10 @@ import fr.snapgames.demo.core.behaviors.Behavior;
 import fr.snapgames.demo.core.entity.Entity;
 
 public class RandomGravitatingBehavior implements Behavior<Entity> {
-    private double speed;
-    private double radius1;
-    private double y;
-    private double x;
+    private final double speed;
+    private final double radius1;
+    private final double y;
+    private final double x;
 
     public RandomGravitatingBehavior(double x, double y, double radius1) {
         this.x = x;

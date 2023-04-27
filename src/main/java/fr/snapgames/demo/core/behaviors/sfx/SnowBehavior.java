@@ -6,6 +6,7 @@ import fr.snapgames.demo.core.entity.EntityType;
 import fr.snapgames.demo.core.entity.Particle;
 import fr.snapgames.demo.core.math.physic.PhysicType;
 import fr.snapgames.demo.core.math.physic.World;
+import fr.snapgames.demo.core.scenes.Scene;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -19,7 +20,7 @@ import java.util.List;
  * @since 1.0.1
  */
 public class SnowBehavior implements ParticleBehavior<Particle> {
-    private final Game game;
+    private final Scene scene;
     private int batch = 10;
     Dimension playArea;
     List<Particle> drops = new ArrayList<>();
@@ -30,8 +31,8 @@ public class SnowBehavior implements ParticleBehavior<Particle> {
         return "Snow";
     }
 
-    public SnowBehavior(Game game, World world, int batch) {
-        this.game = game;
+    public SnowBehavior(Scene scene, World world, int batch) {
+        this.scene = scene;
         this.playArea = world.getPlayArea();
         this.batch = batch;
     }
@@ -72,7 +73,7 @@ public class SnowBehavior implements ParticleBehavior<Particle> {
                 .setVelocity(0.8 - (Math.random() * 1.6), Math.random() * 0.0009)
                 .setRelativeToParent(false);
         parent.addChild(pChild);
-        game.add(pChild);
+        scene.add(pChild);
         return pChild;
     }
 

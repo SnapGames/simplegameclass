@@ -1,16 +1,17 @@
 package fr.snapgames.demo.core;
 
-import fr.snapgames.demo.core.behaviors.Behavior;
 import fr.snapgames.demo.core.configuration.ConfigAttribute;
 import fr.snapgames.demo.core.configuration.Configuration;
-import fr.snapgames.demo.core.entity.Camera;
-import fr.snapgames.demo.core.entity.Entity;
 import fr.snapgames.demo.core.gfx.Renderer;
-import fr.snapgames.demo.core.io.resource.ResourceSystem;
 import fr.snapgames.demo.core.io.UserInput;
+import fr.snapgames.demo.core.io.resource.ResourceManager;
 import fr.snapgames.demo.core.math.physic.PhysicEngine;
+import fr.snapgames.demo.core.scenes.Scene;
+import fr.snapgames.demo.core.scenes.SceneManager;
+import fr.snapgames.demo.core.system.SystemManager;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -23,20 +24,17 @@ import java.util.concurrent.TimeUnit;
 public class Game {
 
     protected Configuration config;
-    protected ResourceSystem resourceSystem;
+    protected ResourceManager resourceManager;
     protected UserInput userInput;
     protected PhysicEngine physicEngine;
     protected Renderer renderer;
     private boolean exit;
     private boolean pause;
-    private Map<String, Entity> entities = new HashMap<>();
-
-    private Map<String, Camera> cameras = new HashMap<>();
-
-    private Map<String, Behavior<?>> behaviors = new HashMap<>();
 
     private int debug;
-    private int meteoValue = 0;
+    private final int meteoValue = 0;
+    private Scene currentScene;
+    private SceneManager sceneManager;
 
     public Game(String[] args, String pathToConfigPropsFile) {
         config = new Configuration(pathToConfigPropsFile, args);
@@ -44,12 +42,23 @@ public class Game {
     }
 
     public void initialize() {
-        resourceSystem = new ResourceSystem();
 
+        resourceManager = new ResourceManager(this);
+
+        SystemManager.add(resourceManager);
         physicEngine = new PhysicEngine(this);
+        SystemManager.add(physicEngine);
         renderer = new Renderer(this);
+        SystemManager.add(renderer);
         userInput = new UserInput(this);
+        SystemManager.add(userInput);
+
+        sceneManager = new SceneManager(this);
+        SystemManager.add(sceneManager);
+        // set specific input handler for renderer window.
         renderer.setUserInput(userInput);
+        // define icon for window.
+        renderer.setWindowIcon(resourceManager.getImage("/images/sg-logo-image.png"));
 
         this.debug = (int) config.get(ConfigAttribute.DEBUG);
     }
@@ -93,11 +102,12 @@ public class Game {
             startTime = System.currentTimeMillis();
             elapsed = startTime - endTime;
             // detect and process user input
-            input();
+            currentScene = sceneManager.getActiveScene();
+            input(currentScene);
             // update all entities
             if (!pause) {
-                physicEngine.update(elapsed);
-                renderer.update(elapsed);
+                physicEngine.update(currentScene, elapsed);
+                renderer.update(currentScene, elapsed);
                 updates++;
                 internalTimeFrames += elapsed;
             }
@@ -106,7 +116,7 @@ public class Game {
             prepareStats(fps, ups, internalTime, stats);
 
             // render all entities
-            renderer.draw(stats);
+            renderer.draw(currentScene, stats);
 
             // compute some stats
             frames++;
@@ -128,7 +138,7 @@ public class Game {
     private void prepareStats(int fps, int ups, long internalTime, Map<String, Object> stats) {
         final String[] meteoTitle = new String[]{"none", "Rain", "Snow"};
         stats.put("dbg", getDebugLevel());
-        stats.put("obj", entities.size());
+        stats.put("obj", currentScene.getEntities().size());
         stats.put("cam", renderer.getCamera() != null ? renderer.getCamera().getName() : "none");
         stats.put("fps", fps);
         stats.put("ups", ups);
@@ -160,8 +170,8 @@ public class Game {
         }
     }
 
-    private void input() {
-        entities.values().stream()
+    private void input(Scene scene) {
+        scene.getEntities().values().stream()
                 .filter(e -> e.isActive() && !e.getBehaviors().isEmpty())
                 .forEach(e -> {
                     e.getBehaviors().forEach(b -> b.input(userInput, e));
@@ -170,7 +180,7 @@ public class Game {
     }
 
     private void dispose() {
-        renderer.dispose();
+        SystemManager.dispose();
     }
 
     public boolean isPause() {
@@ -193,33 +203,9 @@ public class Game {
         this.debug = d;
     }
 
-    public void add(Entity entity) {
-        if (entity instanceof Camera) {
-            renderer.setCamera((Camera) entity);
-            cameras.put(entity.getName(), (Camera) entity);
-        }
-        entities.put(entity.getName(), entity);
-    }
-
-    public void add(String key, Behavior<?> b) {
-        this.behaviors.put(key, b);
-    }
-
-    public Behavior<?> get(String key) {
-        return this.behaviors.get(key);
-    }
-
     public static void main(String[] args) {
         Game app = new Game(args, "/config.properties");
         app.run();
-    }
-
-    public Map<String, Entity> getEntities() {
-        return entities;
-    }
-
-    public Map<String, Behavior<?>> getBehaviors() {
-        return this.behaviors;
     }
 
     public boolean isDebugAtLeast(int level) {
@@ -230,7 +216,7 @@ public class Game {
         return config;
     }
 
-    public ResourceSystem getResourceService() {
-        return resourceSystem;
+    public Scene getCurrentScene() {
+        return currentScene;
     }
 }

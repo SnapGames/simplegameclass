@@ -31,5 +31,5 @@ public enum EntityType {
     /**
      * Entity drawn as Image as position of size (width x height)
      */
-    IMAGE;
+    IMAGE
 }

@@ -4,6 +4,8 @@ import fr.snapgames.demo.core.entity.Camera;
 import fr.snapgames.demo.core.Game;
 import fr.snapgames.demo.core.configuration.ConfigAttribute;
 import fr.snapgames.demo.core.entity.Entity;
+import fr.snapgames.demo.core.scenes.Scene;
+import fr.snapgames.demo.core.system.GameSystem;
 
 import java.awt.*;
 
@@ -16,7 +18,7 @@ import java.awt.*;
  * {@link Entity#mass} from the
  * {@link Entity} class.
  * <p>
- * It is using a {@link World} object defining {@link World#getPlayArea()}  and
+ * It is using a {@link World} object defining {@link World#getPlayArea()} and
  * the internal {@link World#getGravity()} value.
  * <p>
  * Each Entity has its own {@link Material} characteristics, influencing
@@ -32,10 +34,11 @@ import java.awt.*;
  * @see World
  * @since 1.0.0
  */
-public class PhysicEngine {
+public class PhysicEngine extends GameSystem {
+
+    public static final String NAME = "PhysicEngine";
 
     static final double TIME_FACTOR = 0.045;
-    private Game game;
     private World world;
 
     /**
@@ -44,7 +47,8 @@ public class PhysicEngine {
      * @param game
      */
     public PhysicEngine(Game game) {
-        this.game = game;
+
+        super(game, NAME);
     }
 
     /**
@@ -58,10 +62,11 @@ public class PhysicEngine {
      * the velocity on the impacted axis.
      * </p>
      *
+     * @param scene   the current Scene to be updated.
      * @param elapsed the elapsed time since previous update call.
      */
-    public void update(long elapsed) {
-        this.game.getEntities().values().stream()
+    public void update(Scene scene, long elapsed) {
+        scene.getEntities().values().stream()
                 .filter(e -> !(e instanceof Camera) && e.isActive())
                 .sorted((e1, e2) -> e1.priority < e2.priority ? 1 : -1)
                 .forEach(e -> {
@@ -84,7 +89,7 @@ public class PhysicEngine {
      * @param e the Entity to be constrained.
      */
     private void constraintsEntity(Entity e) {
-        Dimension playArea = (Dimension) game.getConfiguration().get(ConfigAttribute.PHYSIC_PLAY_AREA);
+        Dimension playArea = (Dimension) getGame().getConfiguration().get(ConfigAttribute.PHYSIC_PLAY_AREA);
         e.contact = 0;
         if (e.position.x <= 0) {
             e.position.x = 0;
@@ -109,7 +114,7 @@ public class PhysicEngine {
     }
 
     /**
-     * Update of an individual {@link Entity}
+     * Update of an individual {@link Entity} by computing its own
      *
      * @param e       the Entity to be updated.
      * @param elapsed the elapsed time since previous update call.

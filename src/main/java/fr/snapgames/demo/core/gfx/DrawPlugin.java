@@ -22,7 +22,7 @@ public interface DrawPlugin<T extends Entity> {
      *
      * @return a Class specification.
      */
-    public Class<T> getClassName();
+    Class<T> getClassName();
 
     /**
      * Implementation of the draw for the defined class
@@ -31,6 +31,6 @@ public interface DrawPlugin<T extends Entity> {
      * @param g the Graphics2D interface to be used as "pencil"
      * @param t the T extending {@link Entity} instance to be drawn.
      */
-    public default void draw(Renderer r, Graphics2D g, T t) {
+    default void draw(Renderer r, Graphics2D g, T t) {
     }
 }

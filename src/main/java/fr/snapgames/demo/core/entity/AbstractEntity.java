@@ -48,7 +48,7 @@ import java.util.Map;
  */
 public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
     private static long index = 0;
-    private long id = ++index;
+    private final long id = ++index;
     private String name = "default_" + id;
     public int priority = 0;
     public EntityType type = EntityType.RECTANGLE;
@@ -71,7 +71,7 @@ public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
     boolean relativeToParent = false;
 
     T parent;
-    private java.util.List<T> child = new ArrayList<>();
+    private final java.util.List<T> child = new ArrayList<>();
     Map<String, Object> attributes = new HashMap<>();
 
     Map<String, Animation> animations = new HashMap<>();
@@ -158,7 +158,7 @@ public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
     }
 
     public T getParent() {
-        return (T) parent;
+        return parent;
     }
 
     public T add(Behavior<?> b) {
@@ -300,8 +300,6 @@ public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
     }
 
     public void remove(Behavior<?> rb) {
-        if (behaviors.contains(rb)) {
-            behaviors.remove(rb);
-        }
+        behaviors.remove(rb);
     }
 }

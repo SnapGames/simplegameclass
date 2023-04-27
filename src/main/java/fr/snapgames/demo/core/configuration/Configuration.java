@@ -35,7 +35,7 @@ import java.util.stream.Stream;
  */
 public class Configuration {
     ConfigAttribute[] attributes = ConfigAttribute.values();
-    private Map<ConfigAttribute, Object> configurationValues = new ConcurrentHashMap<>();
+    private final Map<ConfigAttribute, Object> configurationValues = new ConcurrentHashMap<>();
 
     /**
      * Initialize the {@link Configuration} set with the properties file values.
@@ -188,19 +188,17 @@ public class Configuration {
      * @param args array of arguments from the Java command line interface.
      */
     public void parseArgs(String[] args) {
-        if (args.length > 0) {
-            for (String arg : args) {
-                String[] kv = arg.split("=");
-                if ("?help".contains(arg.toLowerCase())) {
-                    displayHelpMessage(args);
-                    System.exit(0);
-                }
-                ConfigAttribute ca = ifArgumentFoundSetToValue(kv);
-                if (Optional.ofNullable(ca).isPresent()) {
-                    System.out.printf("INFO: configuration set from argument '%s=%s'%n", kv[0], kv[1]);
-                } else {
-                    displayHelpMessage(kv[0], kv[1]);
-                }
+        for (String arg : args) {
+            String[] kv = arg.split("=");
+            if ("?help".contains(arg.toLowerCase())) {
+                displayHelpMessage(args);
+                System.exit(0);
+            }
+            ConfigAttribute ca = ifArgumentFoundSetToValue(kv);
+            if (Optional.ofNullable(ca).isPresent()) {
+                System.out.printf("INFO: configuration set from argument '%s=%s'%n", kv[0], kv[1]);
+            } else {
+                displayHelpMessage(kv[0], kv[1]);
             }
         }
     }
@@ -338,13 +336,10 @@ public class Configuration {
      */
     private String write(Object value) {
         String output = "";
-        switch (value.getClass().getName()) {
-            case "java.awt.Dimension" -> {
-                output = ((Dimension) value).width + "x" + ((Dimension) value).width;
-            }
-            default -> {
-                output = value.toString();
-            }
+        if (value.getClass().getName().equals("java.awt.Dimension")) {
+            output = ((Dimension) value).width + "x" + ((Dimension) value).width;
+        } else {
+            output = value.toString();
         }
         return output;
     }

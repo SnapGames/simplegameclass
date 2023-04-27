@@ -1,11 +1,11 @@
 package fr.snapgames.demo.core.behaviors.sfx;
 
-import fr.snapgames.demo.core.Game;
 import fr.snapgames.demo.core.behaviors.ParticleBehavior;
 import fr.snapgames.demo.core.entity.EntityType;
 import fr.snapgames.demo.core.entity.Particle;
 import fr.snapgames.demo.core.math.physic.PhysicType;
 import fr.snapgames.demo.core.math.physic.World;
+import fr.snapgames.demo.core.scenes.Scene;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ import java.util.Optional;
  * @since 1.0.1
  */
 public class RainBehavior implements ParticleBehavior<Particle> {
-    private final Game game;
+    private final Scene scene;
     private final double speed;
     private int batch = 10;
     Dimension playArea;
@@ -34,7 +34,7 @@ public class RainBehavior implements ParticleBehavior<Particle> {
 
     private long internalTime = 0;
 
-    private Color dropColor = new Color(0.4f, 0.7f, 0.9f, 0.5f);
+    private final Color dropColor = new Color(0.4f, 0.7f, 0.9f, 0.5f);
 
     public String getName() {
         return "Rain";
@@ -47,8 +47,8 @@ public class RainBehavior implements ParticleBehavior<Particle> {
      * @param batch    number of drop to be generated on the dropTime delay.
      * @param dropTime the delay in the batch rain drops must be generated.
      */
-    public RainBehavior(Game game, World world, int batch, int dropTime, double dropSpeed) {
-        this.game = game;
+    public RainBehavior(Scene game, World world, int batch, int dropTime, double dropSpeed) {
+        this.scene = game;
         this.playArea = world.getPlayArea();
         this.batch = batch;
         this.dropTime = dropTime;
@@ -86,12 +86,12 @@ public class RainBehavior implements ParticleBehavior<Particle> {
                             0)
                     .setBorderColor(dropColor)
                     .setMass(1000.0)
-                    .setVelocity(0.5 - Math.random() * 1.0, speed)
+                    .setVelocity(0.5 - Math.random(), speed)
                     .setRelativeToParent(false)
                     .add(new RainDropBehavior(playArea))
                     .setActive(true);
             parent.addChild(pChild);
-            game.add(pChild);
+            scene.add(pChild);
             drops.add(pChild);
         } else {
             Optional<Particle> existingParticle = drops.stream().filter(p -> !p.isActive()).findFirst();

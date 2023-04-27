@@ -4,11 +4,11 @@ import fr.snapgames.demo.core.Game;
 
 import java.awt.event.KeyEvent;
 
-public class GameActionListener implements UserActionListener {
+public class DefaultGameActionListener implements UserActionListener {
 
-    private Game game;
+    private final Game game;
 
-    public GameActionListener(Game g) {
+    public DefaultGameActionListener(Game g) {
         this.game = g;
     }
 

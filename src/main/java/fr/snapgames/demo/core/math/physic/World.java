@@ -18,7 +18,7 @@ import java.util.List;
  */
 public class World {
     private double gravity = 0.981;
-    private Dimension playArea;
+    private final Dimension playArea;
 
     java.util.List<Influencer> influencers = new ArrayList<>();
 

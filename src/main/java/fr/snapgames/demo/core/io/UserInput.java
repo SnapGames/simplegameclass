@@ -1,25 +1,26 @@
 package fr.snapgames.demo.core.io;
 
 import fr.snapgames.demo.core.Game;
+import fr.snapgames.demo.core.system.GameSystem;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.ArrayList;
 import java.util.List;
 
-public class UserInput implements KeyListener {
+public class UserInput extends GameSystem implements KeyListener {
+    public static final String NAME = "UserInput";
 
-    private final Game game;
-    private boolean[] keys = new boolean[65636];
+    private final boolean[] keys = new boolean[65636];
 
-    private List<UserActionListener> listeners = new ArrayList<>();
+    private final List<UserActionListener> listeners = new ArrayList<>();
     private boolean ctrlKeyPressed;
     private boolean shiftKeyPressed;
     private boolean altKeyPressed;
     private boolean altGrKeyPressed;
 
     public UserInput(Game game) {
-        this.game = game;
+        super(game, NAME);
     }
 
     public void add(UserActionListener kl) {
@@ -62,5 +63,13 @@ public class UserInput implements KeyListener {
 
     public boolean isCtrlPressed() {
         return ctrlKeyPressed;
+    }
+
+    public boolean isAltPressed() {
+        return altKeyPressed;
+    }
+
+    public boolean isAltGrPressed() {
+        return altGrKeyPressed;
     }
 }

@@ -6,7 +6,7 @@ import java.awt.event.KeyEvent;
 
 public class DebugSwitcher implements UserActionListener {
 
-    private Game game;
+    private final Game game;
 
     public DebugSwitcher(Game g) {
         this.game = g;

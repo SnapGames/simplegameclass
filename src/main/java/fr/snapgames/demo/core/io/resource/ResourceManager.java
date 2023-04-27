@@ -1,10 +1,13 @@
 package fr.snapgames.demo.core.io.resource;
 
 import fr.snapgames.demo.core.Game;
+import fr.snapgames.demo.core.system.GameSystem;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,16 +21,20 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Frédéric Delorme
  * @since 1.0.0
  */
-public class ResourceSystem {
+public class ResourceManager extends GameSystem {
 
-    Map<String, Object> resources;
+    public static final String NAME = "ResourceManager";
 
-    public ResourceSystem() {
+    private Map<String, Object> resources;
+
+    public ResourceManager(Game g) {
+        super(g, NAME);
         resources = new ConcurrentHashMap<>();
     }
 
     /**
-     * Retrieve an image from resourceSystem cache. if not already exist, load it into
+     * Retrieve an image from resourceSystem cache. if not already exist, load it
+     * into
      * cache
      *
      * @param file the file to be loaded as an Image
@@ -38,12 +45,12 @@ public class ResourceSystem {
         if (!resources.containsKey(file)) {
             try {
                 img = ImageIO.read(Game.class.getResourceAsStream(file));
+                resources.putIfAbsent(file, img);
+                System.out.printf("INFO: '%s' added as a image resource%n", file);
             } catch (Exception e) {
-                System.err.printf("Unable to read the image %s", file);
+                System.err.printf("ERROR: Unable to read the image %s%n", file);
             }
-            resources.putIfAbsent(file, img);
         }
-
         return (BufferedImage) resources.get(file);
     }
 
@@ -56,16 +63,22 @@ public class ResourceSystem {
      */
     public Font getFont(String file) {
         Font font = null;
-
         if (!resources.containsKey(file)) {
-            try {
-                font = getFont(file);
-
-            } catch (Exception e) {
-                System.err.printf("ERROR: unable to find font file %s: %s", file, e.getMessage());
-            }
-            resources.putIfAbsent(file, font);
+            loadFont(file);
         }
         return (Font) resources.get(file);
+    }
+
+    private void loadFont(String path) {
+        // load a Font resource
+        try {
+            Font font = Font.createFont(Font.TRUETYPE_FONT, ResourceManager.class.getResourceAsStream(path));
+            if (font != null) {
+                resources.putIfAbsent(path, font);
+                System.out.printf("INFO: '%s' added as a font resource%n", path);
+            }
+        } catch (FontFormatException | IOException e) {
+            System.err.printf("ERROR: Unable to read font from %s%n", path);
+        }
     }
 }

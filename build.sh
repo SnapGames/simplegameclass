@@ -12,11 +12,13 @@ export PROGRAM_NAME=$(prop project.name)
 export PROGRAM_VERSION=$(prop project.version)
 export PROGRAM_TITLE=$(prop project.title)
 export MAIN_CLASS=$(prop project.mainclass)
+export PACKAGES_LIST=$(prop project.javadoc.packages)
 export VENDOR_NAME=$(prop project.author.name)
 export AUTHOR_NAME=$(prop project.author.email)
+export JAVA_VERSION=$(prop project.build.jdk.version)
 
 # A dirty list of package to be build (TODO add automation on package detection)
-export JAVADOC_CLASSPATH="fr.snapgames.demo.core fr.snapgames.demo.demo01 "
+export JAVADOC_CLASSPATH="fr.snapgames.demo.core fr.snapgames.demo.demo01"
 export JAVADOC_GROUPS="-group \"Core package\" fr.snapgames.demo.core -group \"Demo package\" fr.snapgames.demo.demo01"
 
 # paths
@@ -25,10 +27,10 @@ export LIBS=./lib
 export TARGET=./target
 export BUILD=${TARGET}/build
 export CLASSES=${TARGET}/classes
-export RESOURCES=${SRC}/main/resourceSystem
+export RESOURCES=${SRC}/main/resources
 
 # ---- Java JDK version and file encoding
-export SOURCE_VERSION=19
+export SOURCE_VERSION=${JAVA_VERSION}
 export SOURCE_ENCODING=UTF-8
 
 # ---- CheckStyle
@@ -50,8 +52,8 @@ export TARGET=target
 export BUILD=$TARGET/build
 export CLASSES=$TARGET/classes
 export TESTCLASSES=$TARGET/test-classes
-export RESOURCES=$SRC/main/resourceSystem
-export TESTRESOURCES=$SRC/test/resourceSystem
+export RESOURCES=$SRC/main/resources
+export TESTRESOURCES=$SRC/test/resources
 export JAR_NAME=$PROGRAM_NAME-$PROGRAM_VERSION.jar
 # ---- to enforce preview compatibility use the --enable-preview mode,
 # ---- for more information, see https://docs.oracle.com/en/java/javase/18/language/preview-language-and-vm-features.html
@@ -150,8 +152,8 @@ function executeTests() {
   echo "> to   : $TARGET/test-classes"
   mkdir -p $TARGET/test-classes
   echo "copy test resources"
-  cp -r ./src/main/resourceSystem/* $TESTCLASSES
-  cp -r ./src/test/resourceSystem/* $TESTCLASSES
+  cp -r ./$RESOURCES/* $TESTCLASSES
+  cp -r ./$TESTRESOURCES/* $TESTCLASSES
   echo "compile test classes"
   #list test sources
   find $SRC/main -name '*.java' >$TARGET/sources.lst

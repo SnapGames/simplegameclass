@@ -27,7 +27,7 @@ public class Animation {
     double speed = 1.0;
 
     long animationTime = 0;
-    private long[] frameTimes;
+    private final long[] frameTimes;
 
     public Animation(BufferedImage[] f, long[] frameTimes) {
         this.frames = f;

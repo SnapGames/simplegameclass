@@ -1,6 +1,9 @@
 package fr.snapgames.demo.core.gfx.animation;
 
 import fr.snapgames.demo.core.Game;
+import fr.snapgames.demo.core.io.resource.ResourceManager;
+import fr.snapgames.demo.core.system.GameSystem;
+import fr.snapgames.demo.core.system.SystemManager;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -16,8 +19,8 @@ import java.util.Properties;
  * @author Frédéric Delorme
  * @since 1.0.1
  */
-public class Animations {
-    private final Game game;
+public class Animations extends GameSystem {
+    public static final String NAME = "Animations";
     Map<String, Animation> animations = new HashMap<>();
 
     /**
@@ -27,16 +30,9 @@ public class Animations {
      *                      their frames and times.
      * @see Animations#loadFromFile(String)
      */
-    public Animations(Game game, String animationFile) {
-        this.game = game;
-        loadFromFile(animationFile);
-    }
-
-    /**
-     * A default constructor without any specific actions.
-     */
-    public Animations(Game game) {
-        this.game = game;
+    public Animations(Game game, String pathToAnimationFile) {
+        super(game, NAME);
+        loadFromFile(pathToAnimationFile);
     }
 
     /**
@@ -82,7 +78,6 @@ public class Animations {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
     }
 
     /**
@@ -95,9 +90,11 @@ public class Animations {
      * @return the corresponding initialized {@link Animation} instance.
      */
     public Animation loadAnimation(String imageSrcPath, boolean loop, String[] framesDef) {
+        ResourceManager rm = (ResourceManager) SystemManager.get(ResourceManager.NAME);
+
         BufferedImage[] imgs = new BufferedImage[framesDef.length];
         long[] frameTimes = new long[framesDef.length];
-        BufferedImage imageSource = game.getResourceService().getImage(imageSrcPath);
+        BufferedImage imageSource = rm.getImage(imageSrcPath);
         int i = 0;
         for (String f : framesDef) {
             String[] val = f.split(",");

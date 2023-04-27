@@ -8,6 +8,10 @@ import fr.snapgames.demo.core.entity.Entity;
 import fr.snapgames.demo.core.gfx.plugins.EntityDrawPlugin;
 import fr.snapgames.demo.core.gfx.plugins.ParticleDrawPlugin;
 import fr.snapgames.demo.core.gfx.plugins.TextDrawPlugin;
+import fr.snapgames.demo.core.io.resource.ResourceManager;
+import fr.snapgames.demo.core.scenes.Scene;
+import fr.snapgames.demo.core.system.GameSystem;
+import fr.snapgames.demo.core.system.SystemManager;
 
 import javax.swing.*;
 import java.awt.*;
@@ -17,15 +21,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class Renderer {
-    private final Game game;
-    private JFrame frame;
+public class Renderer extends GameSystem {
+    public static final String NAME = "Renderer";
+
+    private final JFrame frame;
     private Camera camera;
     private BufferedImage renderingBuffer;
-    private Map<Class<? extends Entity>, DrawPlugin<? extends Entity>> plugins = new HashMap<>();
+    private final Map<Class<? extends Entity>, DrawPlugin<? extends Entity>> plugins = new HashMap<>();
 
     public Renderer(Game game) {
-        this.game = game;
+        super(game, NAME);
         this.frame = createWindow(
                 (String) game.getConfiguration().get(ConfigAttribute.TITLE),
                 (Dimension) game.getConfiguration().get(ConfigAttribute.WINDOW_SIZE),
@@ -43,14 +48,13 @@ public class Renderer {
     }
 
     private JFrame createWindow(String title, Dimension size, Dimension resolution) {
-
+        ResourceManager rm = (ResourceManager) SystemManager.get("ResourceManager");
         JFrame frame = new JFrame(title);
 
         // setPreferredSize(size);
         frame.setPreferredSize(size);
         frame.setLayout(new GridLayout());
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setIconImage(game.getResourceService().getImage("/images/sg-logo-image.png"));
         frame.setLocationRelativeTo(null);
         frame.pack();
         frame.setVisible(true);
@@ -64,9 +68,15 @@ public class Renderer {
         return frame;
     }
 
-    public void draw(Map<String, Object> stats) {
-        Dimension playArea = (Dimension) game.getConfiguration().get(ConfigAttribute.PHYSIC_PLAY_AREA);
-        Graphics2D g = (Graphics2D) renderingBuffer.createGraphics();
+    public void setWindowIcon(BufferedImage iconIMage) {
+        if (iconIMage != null && null != this.frame) {
+            this.frame.setIconImage(iconIMage);
+        }
+    }
+
+    public void draw(Scene scene, Map<String, Object> stats) {
+        Dimension playArea = (Dimension) getGame().getConfiguration().get(ConfigAttribute.PHYSIC_PLAY_AREA);
+        Graphics2D g = renderingBuffer.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
@@ -75,8 +85,8 @@ public class Renderer {
         g.fillRect(0, 0, renderingBuffer.getWidth(), renderingBuffer.getHeight());
 
         // draw something
-        this.game.getEntities().values().stream()
-                .filter(e -> !(e instanceof Camera) && e.isActive() && camera.isInFOV(e))
+        scene.getEntities().values().stream()
+                .filter(e -> !(e instanceof Camera)) //&& e.isActive()&& camera.isInFOV(e))
                 .sorted((e1, e2) -> e1.priority > e2.priority ? 1 : -1)
                 .forEach(e -> {
 
@@ -143,7 +153,7 @@ public class Renderer {
     }
 
     private void drawDebugLine(Graphics2D g, Map<String, Object> stats) {
-        Dimension windowSize = (Dimension) this.game.getConfiguration().get(ConfigAttribute.WINDOW_SIZE);
+        Dimension windowSize = (Dimension) this.getGame().getConfiguration().get(ConfigAttribute.WINDOW_SIZE);
         g.setColor(new Color(0.6f, 0.3f, 0.0f, 0.8f));
         g.fillRect(0, frame.getHeight() - 28, frame.getWidth(), 20);
         g.setFont(g.getFont().deriveFont(12.0f));
@@ -167,7 +177,7 @@ public class Renderer {
                     value = entry.getValue().toString();
                 }
             }
-            return entry.getKey().substring(((String) entry.getKey().toString()).indexOf('_') + 1)
+            return entry.getKey().substring(entry.getKey().indexOf('_') + 1)
                     + ":"
                     + value;
         }).collect(Collectors.joining(" | ")) + end;
@@ -200,12 +210,17 @@ public class Renderer {
         }
     }
 
-    public void update(long elapsed) {
+    /**
+     * Update the camera.
+     *
+     * @param scene   the current Scene to be updated.
+     * @param elapsed the elapsed time since previous call.
+     */
+    public void update(Scene scene, long elapsed) {
         if (Optional.ofNullable(this.camera).isPresent()) {
             this.camera.update(elapsed);
         }
     }
-
 
     private void drawEntity(Graphics2D g, Entity e) {
         if (plugins.containsKey(e.getClass())) {
@@ -238,7 +253,4 @@ public class Renderer {
         return (Graphics2D) this.renderingBuffer.getGraphics();
     }
 
-    public boolean isDebugAtLeast(int i) {
-        return game.isDebugAtLeast(i);
-    }
 }
