@@ -11,6 +11,7 @@ import fr.snapgames.demo.core.io.resource.ResourceManager;
 import fr.snapgames.demo.core.math.physic.PhysicEngine;
 import fr.snapgames.demo.core.system.SystemManager;
 
+import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +31,7 @@ public abstract class AbstractScene implements Scene {
     protected PhysicEngine physicEngine;
     protected ResourceManager resourceManager;
     protected UserInput userInput;
+    private Font debugFont;
 
     protected AbstractScene(Game g) {
         this.game = g;
@@ -38,6 +40,16 @@ public abstract class AbstractScene implements Scene {
         this.resourceManager = (ResourceManager) SystemManager.get(ResourceManager.NAME);
         this.userInput = (UserInput) SystemManager.get(UserInput.NAME);
         this.renderer = (Renderer) SystemManager.get(Renderer.NAME);
+    }
+
+    @Override
+    public void prepare(Game g) {
+        renderer.setDebugFont(resourceManager.getFont("/fonts/lilliput steps.ttf").deriveFont(8.5f));
+    }
+
+    @Override
+    public void create(Game g) {
+
     }
 
     @Override

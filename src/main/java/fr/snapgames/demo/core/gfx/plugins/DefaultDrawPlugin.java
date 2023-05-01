@@ -89,9 +89,6 @@ public abstract class DefaultDrawPlugin<T extends Entity> implements DrawPlugin<
                 System.err.printf("ERROR: Unable to draw the entity %s%n", e.getName());
             }
         }
-        // draw debug info if required
-        if (r.isDebugAtLeast(2)) {
-            r.drawDebugEntityInfo(g, e);
-        }
+
     }
 }

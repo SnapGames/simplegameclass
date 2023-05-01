@@ -11,7 +11,7 @@ public class PlayerInputBehavior implements Behavior<Entity> {
     public void input(UserInput ui, Entity player) {
         boolean move = false;
         double step = (double) player.getAttribute("step", 0.1);
-        double jump = (double) player.getAttribute("player_jump", -4.0 * 0.2);
+        double jump = (double) player.getAttribute("player_jump", -10.0 * 0.2);
         if (ui.getKey(KeyEvent.VK_UP)) {
             player.velocity.y += jump;
             player.currentAnimation = "player_jump";

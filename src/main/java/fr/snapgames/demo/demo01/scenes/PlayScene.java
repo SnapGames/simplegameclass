@@ -6,10 +6,7 @@ import fr.snapgames.demo.core.behaviors.sfx.RainBehavior;
 import fr.snapgames.demo.core.behaviors.sfx.RandomGravitatingBehavior;
 import fr.snapgames.demo.core.behaviors.sfx.SnowBehavior;
 import fr.snapgames.demo.core.configuration.ConfigAttribute;
-import fr.snapgames.demo.core.entity.Camera;
-import fr.snapgames.demo.core.entity.Entity;
-import fr.snapgames.demo.core.entity.Particle;
-import fr.snapgames.demo.core.entity.TextEntity;
+import fr.snapgames.demo.core.entity.*;
 import fr.snapgames.demo.core.gfx.Renderer;
 import fr.snapgames.demo.core.gfx.animation.Animations;
 import fr.snapgames.demo.core.io.DebugSwitcher;
@@ -47,17 +44,19 @@ public class PlayScene extends AbstractScene {
 
     @Override
     public void create(Game g) {
+
         // initialize PhysicEngine world
         World world = new World(
                 (Double) config.get(ConfigAttribute.PHYSIC_GRAVITY),
                 (Dimension) config.get(ConfigAttribute.PHYSIC_PLAY_AREA));
         physicEngine.setWorld(world);
+
         // defined in the Game inheriting class
         Entity background = (Entity) new Entity("backImage")
                 .setPosition(0, 0)
                 .setPhysicType(PhysicType.STATIC)
                 .setImage(resourceManager.getImage("/images/backgrounds/forest.jpg"))
-                .setPriority(5);
+                .setPriority(0);
         add(background);
 
         // add the main player entity.
@@ -95,19 +94,20 @@ public class PlayScene extends AbstractScene {
         add("rainBehavior", rb);
         add("snowBehavior", sb);
 
-        // add a new particles animation to simulate rain
-        Particle particles = (Particle) new Particle("particles", 0, 0, 2000)
-                .setPriority(1)
+        // add a new weather animation to simulate rain
+        Particle weather = (Particle) new Particle("weather", 0, 0, 2000)
+                .setPriority(10)
                 .add(sb)
                 .add(rb)
                 .setActive(true);
-        add(particles);
+        add(weather);
 
-        // add a new particles animation to simulate rain
+        // add a new weather animation to simulate rain
 
         Dimension vp = (Dimension) config.get(ConfigAttribute.SCREEN_RESOLUTION);
 
-        TextEntity score = (TextEntity) new TextEntity("score", vp.width - 80, 30)
+        TextEntity score = (TextEntity) new TextEntity(
+                "score", (int) (vp.width - 80), (int) (vp.height * 0.25))
                 .setText("00000")
                 .setFont(scoreFont)
                 .setTextColor(Color.WHITE)
@@ -115,7 +115,7 @@ public class PlayScene extends AbstractScene {
                 .setShadowColor(new Color(0.0f, 0.0f, 0.0f, 0.6f))
                 .setBorderWidth(2)
                 .setBorderColor(new Color(0.6f, 0.6f, 0.6f, 0.6f))
-                .setPriority(10)
+                .setPriority(20)
                 .setFixedToCamera(true);
         add(score);
 
@@ -124,6 +124,12 @@ public class PlayScene extends AbstractScene {
                 .setTween(0.04)
                 .setViewport(vp);
         add(cam);
+
+        DebugGridEntity grid = (DebugGridEntity) new DebugGridEntity("grid", 32, 32, world)
+                .setPriority(19)
+                .setBorderColor(new Color(0.8f, 0.4f, 0.1f, 0.6f))
+                .setFillColor(new Color(0.0f, 0.5f, 0.9f, 0.6f));
+        add(grid);
 
         // default game action(escape & pause)
         userInput.add(new DefaultGameActionListener(g));

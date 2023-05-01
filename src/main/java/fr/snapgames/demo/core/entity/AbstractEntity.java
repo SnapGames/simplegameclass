@@ -49,6 +49,7 @@ import java.util.Map;
 public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
     private static long index = 0;
     private final long id = ++index;
+    public double rotation = 0.0;
     private String name = "default_" + id;
     public int priority = 0;
     public EntityType type = EntityType.RECTANGLE;
@@ -264,6 +265,11 @@ public abstract class AbstractEntity<T extends Node<T>> implements Node<T> {
     public T setVelocity(double dx, double dy) {
         this.velocity.x = dx;
         this.velocity.y = dy;
+        return (T) this;
+    }
+
+    public T serRotation(double r) {
+        this.rotation = r;
         return (T) this;
     }
 

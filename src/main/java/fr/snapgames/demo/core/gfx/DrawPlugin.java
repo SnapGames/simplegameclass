@@ -33,4 +33,11 @@ public interface DrawPlugin<T extends Entity> {
      */
     default void draw(Renderer r, Graphics2D g, T t) {
     }
+
+    default void drawDebug(Renderer r, Graphics2D g, T t) {
+        // draw debug info if required
+        if (r.isDebugAtLeast(2)) {
+            r.drawDebugEntityInfo(g, t);
+        }
+    }
 }

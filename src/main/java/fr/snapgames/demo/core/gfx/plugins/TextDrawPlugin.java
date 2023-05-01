@@ -22,7 +22,8 @@ public class TextDrawPlugin implements DrawPlugin<TextEntity> {
         }
 
         g.setFont(textEntity.font);
-
+        textEntity.width = g.getFontMetrics().stringWidth(textEntity.text);
+        textEntity.height = g.getFontMetrics().getHeight();
         g.setColor(textEntity.borderColor);
         for (int xb = 0; xb < textEntity.borderWidth; xb++) {
             for (int yb = 0; yb < textEntity.borderWidth; yb++) {
@@ -58,4 +59,14 @@ public class TextDrawPlugin implements DrawPlugin<TextEntity> {
         }
     }
 
+    @Override
+    public void drawDebug(Renderer r, Graphics2D g, TextEntity t) {
+        // draw box
+        g.setColor(Color.ORANGE);
+        Stroke b = g.getStroke();
+        g.setStroke(new BasicStroke(0.2f));
+        g.drawRect((int) t.position.x, (int) (t.position.y - t.height), (int) t.width, (int) t.height);
+        g.setStroke(b);
+        r.drawMetaInfo(g, t, t.position.x, t.position.y);
+    }
 }
